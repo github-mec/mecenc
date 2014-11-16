@@ -1,0 +1,129 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use utf8;
+
+use List::Util qw/min max/;
+use POSIX;
+
+
+my $input_filename = 'scene.txt';
+die "No such file. [$input_filename]" unless -f $input_filename;
+my $output_filename = "scene_filtered.txt";
+die "A file already exists. [$output_filename]" if -e $output_filename;
+
+open my $input_fh, '<', $input_filename or die "Failed to open a file. [$input_filename]";
+my @lines;
+push @lines, <$input_fh>;
+close $input_fh;
+
+my @candidates = ();
+my %cm_set = ();
+# First segment may be a body.
+push @candidates, $lines[0];
+LINE: for (my $i = 0; $i <= $#lines - 1; ++$i) {
+    for (my $j = $i + 1; $j <= $#lines; ++$j) {
+        if (checkDiff($lines[$i], $lines[$j])) {
+            push @candidates, $lines[$i];
+            push @candidates, $lines[$j];
+            $cm_set{$lines[$i]} = 1;
+            $i = $j - 1;
+            next LINE;
+        }
+    }
+}
+push @candidates, $lines[$#lines];
+#@candidates = do { my %c; grep {!$c{$_}++} @candidates[1..$#candidates] };  # uniq. remove first dummy line.
+@candidates = do { my %c; grep {!$c{$_}++} @candidates };  # uniq
+
+my @result = ();
+for my $value (@candidates) {
+    if ($cm_set{$value} || $value eq $candidates[$#candidates]) {
+        chomp $value;
+        push @result, "$value CM";
+    } else {
+        chomp $value;
+        push @result, "$value BODY";
+    }
+}
+
+@result = filterSingleCm(@result);
+@result = filterAggregateBody(@result);
+
+open my $output_fh, '>', $output_filename or die "Failed to open file. [$output_filename]";
+print $output_fh "$_\n" for @result;
+close $output_fh;
+
+exit;
+
+
+sub checkDiff {
+    my ($a, $b) = @_;
+    my ($a_is_exact, $a_min, $a_max) = dumpLine($a);
+    my ($b_is_exact, $b_min, $b_max) = dumpLine($b);
+    my $diff_min = $b_min - $a_max;
+    my $diff_max = $b_max - $a_min;
+
+    if ($a_is_exact && $b_is_exact) {
+        # temmporary hack for noitamina.
+        if (147.4 <= $diff_min && $diff_min <= 151.6 && $a_min < 3300) {
+            return 1;
+        }
+
+        # min == max
+        if (446.4 <= $diff_min && $diff_min <= 452.6) {
+            return 1;
+        }
+        if (896.4 <= $diff_min && $diff_min <= 901.6) {
+            return 1;
+        }
+        return 0;
+    }
+
+    return 0;
+}
+
+sub dumpLine {
+    my $a = shift;
+    my ($min, $max, $exact) = (split '\s+', $a)[2, 3, 4];
+        
+    if (defined $exact && $a =~ m/exact/) {
+        $exact = POSIX::floor($exact * 10 + 0.1) / 10.0;
+        return (1, $exact, $exact);
+    } else {
+        return (0, int($min), int($max));
+    }
+}
+
+sub filterSingleCm {
+    my @lines = @_;
+    for (my $i = 1; $i < $#lines - 1; ++$i)  {
+        if (getType($lines[$i - 1]) eq 'BODY' &&
+            getType($lines[$i]) eq 'CM' &&
+            getType($lines[$i + 1]) eq 'BODY') {
+            splice @lines, $i, 1;
+            --$i;
+        }
+    }
+    return @lines;
+}
+
+sub filterAggregateBody {
+    my @lines = @_;
+    my $previous_type = '';
+    for (my $i = 0; $i < $#lines; ++$i)  {
+        my $type = getType($lines[$i]);
+        if ($previous_type eq 'BODY' and $type eq 'BODY') {
+            splice @lines, $i, 1;
+            --$i;
+        }
+        $previous_type = $type;
+    }
+    return @lines;
+}
+
+sub getType {
+    my $line = shift;
+    return (split('\s+', $line))[5];
+}
