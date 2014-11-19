@@ -19,8 +19,24 @@ HISTOGRAM_3D_BIN_N = 12
 def ParseOptions(args=None):
     parser = optparse.OptionParser()
     parser.add_option('--no_dump', dest='no_dump', default=False,
-                      help='True if an input movie is already dumped.')
-    return parser.parse_args(args)
+                      help='True if the input movie is already dumped.')
+    parser.add_option('--scene_time_filter', dest='scene_time_filter',
+                      default=None,
+                      help=('Comma-separated [start,duration) of scene'
+                            ' start/end positions in sec.'))
+    (options, _) = parser.parse_args(args)
+
+    if options.scene_time_filter is not None:
+        (filter_start, filter_duration) = map(
+            float, options.scene_time_filter.split(','))
+        if not 0 <= filter_start < 1:
+            raise ValueError(
+                'Start position of the CM time filter should be in [0,1)')
+        if not 0 <= filter_duration < 1:
+            raise ValueError(
+                'Duration of the CM time filter should be in [0,1)')
+
+    return options
 
 
 def TimeToFrameNum(time):
@@ -38,8 +54,30 @@ def GetDumpDirname(scene_index):
     return dirname
 
 
+#TODO: Return multiple ranges.
+def FilterSilenceTime(options, start, end):
+    if options.scene_time_filter is None:
+        return [start, end]
+
+    (filter_start, filter_duration) = map(
+        float, options.scene_time_filter.split(','))
+    filter_start = filter_start + int(start)
+    while filter_start < end:
+        filter_end = filter_start + filter_duration
+        if filter_start < start:
+            if start < filter_end:
+                return [start, filter_end]
+        elif end < filter_end:
+            return [filter_start, end]
+        else:
+            return [filter_start, filter_end]
+        filter_start = filter_start + 1
+    return [start, end]
+
+
 def GetDelay(filename):
-    process = subprocess.Popen(['ffmpeg', '-i', filename], stdout=None, stderr=subprocess.PIPE)
+    process = subprocess.Popen(
+        ['ffmpeg', '-i', filename], stdout=None, stderr=subprocess.PIPE)
     output = process.communicate()[1]
     return float(re.search('Duration:.+start:\s+([\d\.]+)', output).group(1))
 
@@ -48,13 +86,15 @@ def DumpMoviesInternal(movie_filename, frame_list, file_index_offset):
     command = ['ffmpeg', '-i', '%s' % movie_filename]
     output_filenames = []
     for i in xrange(len(frame_list)):
-        dirname = GetDumpDirname(i + file_index_offset);
+        dirname = GetDumpDirname(i + file_index_offset)
         start = frame_list[i][0]
         end = frame_list[i][1] + 1
         output_filename = '%s/dump.mp4v' % dirname
         output_filenames.append(output_filename)
         command.extend([
-                '-filter:v', 'trim=start_frame=%d:end_frame=%d,separatefields,setpts=PTS-STARTPTS' % (start, end),
+                '-filter:v', (
+                    'trim=start_frame=%d:end_frame=%d,separatefields'
+                    ',setpts=PTS-STARTPTS' % (start, end)),
                 '-vcodec', 'libx264',
                 '-an',
                 '-preset', 'veryfast',
@@ -63,7 +103,7 @@ def DumpMoviesInternal(movie_filename, frame_list, file_index_offset):
                 output_filename])
 
     process = subprocess.Popen(command, stdout=None, stderr=subprocess.PIPE)
-    output = process.communicate()[1];
+    output = process.communicate()[1]
     if process.returncode != 0:
         logging.error('Failed to dump movies.')
         sys.exit(process.returncode)
@@ -72,7 +112,9 @@ def DumpMoviesInternal(movie_filename, frame_list, file_index_offset):
 
 
 def DumpMovies(movie_filename, frame_list):
-    # Limit parallel num due to memory limit. 30 parallel encode consumes 6-8GB memory.
+    # Limit parallel num due to memory limit. 30
+    # e.g. parallel encode consumes 6-8GB memory.
+    # TODO: Dump images directly instead of movies.
     MAX_PARALLEL_NUM = 16
     total_num = len(frame_list)
     parallel_num = total_num % MAX_PARALLEL_NUM
@@ -82,7 +124,8 @@ def DumpMovies(movie_filename, frame_list):
     while consumed_num < total_num:
         start = consumed_num
         end = consumed_num + parallel_num
-        output_filenames.extend(DumpMoviesInternal(movie_filename, frame_list[start:end], start))
+        output_filenames.extend(
+            DumpMoviesInternal(movie_filename, frame_list[start:end], start))
         consumed_num = end
         parallel_num = min(total_num - consumed_num, MAX_PARALLEL_NUM)
     return output_filenames
@@ -90,14 +133,14 @@ def DumpMovies(movie_filename, frame_list):
 
 def DumpImages(movie_filename, scene_index):
     dump_dirname = GetDumpDirname(scene_index)
-    command = ['ffmpeg', '-i', movie_filename];
+    command = ['ffmpeg', '-i', movie_filename]
     command.extend([
             '-filter:v', 'scale=width=480:height=270',
             '-qscale', '1',
             '%s/%s' % (dump_dirname, "%04d.jpg")])
 
     process = subprocess.Popen(command, stdout=None, stderr=subprocess.PIPE)
-    output = process.communicate()[1];
+    output = process.communicate()[1]
     if process.returncode != 0:
         logging.error('Failed to dump images.')
         sys.exit(process.returncode)
@@ -127,7 +170,7 @@ def AnalyzeMovie(dirname):
                '-y',
                '/dev/null']
     process = subprocess.Popen(command, stdout=None, stderr=subprocess.PIPE)
-    output = process.communicate()[1];
+    output = process.communicate()[1]
     if process.returncode != 0:
         logging.error('Failed to dump images.')
         sys.exit(process.returncode)
@@ -176,9 +219,12 @@ def CalcEmd(histogram1, histogram2):
 
 
 def Load3dHistogramDistances(image_dirname):
+    # TODO: 3D histogram distance is overkill and consume CPU resources.
+    #       Let's use three 1D histogram distance instead.
     image_filenames = GetImageFilenames(image_dirname)
     histograms = [Load3dHistogramBgr(filename) for filename in image_filenames]
-    return [CalcEmd(histograms[i - 1], histograms[i]) for i in xrange(1, len(histograms))]
+    return [CalcEmd(histograms[i - 1], histograms[i])
+            for i in xrange(1, len(histograms))]
 
 
 def LoadGrayScaleHistogram(filename):
@@ -199,11 +245,13 @@ def LoadGrayScaleHistogramList(image_dirname):
 def AnalyzeDistances(
     distances, threshold, trim=0, check_first_frame=False):
     if trim * 3 > len(distances):
-        trim = len(distances) / 3;
+        trim = len(distances) / 3
     start = 0 if check_first_frame else trim
     end = len(distances) - trim
     # i + 1 since this method return the first frame of the a scene.
-    results = [i + 1 for i in xrange(start, end) if distances[i] >= threshold]
+    results = [i + 1
+               for i in xrange(start, end)
+               if distances[i] >= threshold]
     return results[0] if len(results) >= 1 else 0
 
 
@@ -231,40 +279,64 @@ def AnalyzeLastResort(distances, threshold):
     return result if max_value > threshold else -result
 
 
-def Analyze(dump_dirname, frame):
-    start = frame[0]
-    end = frame[1]
-    check_first_frame = start < 5
+def Analyze(options, dump_dirname, frame):
+    if frame['filtered_start'] == frame['filtered_end']:
+        return 0
+
+    is_scene_time_filter_enabled = options.scene_time_filter is not None
+    if is_scene_time_filter_enabled:
+        check_first_frame = True
+        trim_frames = 0
+    else:
+        check_first_frame = frame['start'] < 5
+        trim_frames = 14
 
     distances = Load3dHistogramDistances(dump_dirname)
+    assert len(distances) == (frame['end'] - frame['start']) * 2 + 1
 
-    scene_change_frame = AnalyzeDistances(
-        distances, threshold=0.3, trim=14, check_first_frame=check_first_frame)
+    start_offset = (frame['filtered_start'] - frame['start']) * 2
+    end_offset = (frame['filtered_end'] - frame['start']) * 2 + 1
+    distances = distances[start_offset:end_offset]
+
+    scene_change_frame = 0
+    for _ in xrange(1):
+        scene_change_frame = AnalyzeDistances(
+            distances, threshold=0.3, trim=trim_frames,
+            check_first_frame=check_first_frame)
+        if scene_change_frame > 0:
+            break
+
+        gray_histograms = LoadGrayScaleHistogramList(dump_dirname)
+        scene_change_frame = AnalyzeBlackWhiteFrame(
+            gray_histograms, check_first_frame=check_first_frame)
+        if scene_change_frame > 0:
+            break
+
+        scene_change_frame = AnalyzeDistances(
+            distances, threshold=0.2, trim=trim_frames,
+            check_first_frame=check_first_frame)
+        if scene_change_frame > 0:
+            break
+
+        scene_change_frame = AnalyzeDistances(distances, threshold=0.2)
+        if scene_change_frame > 0:
+            break
+
+        #   AnalyzeMovie cannot handle interlaced frame correctly.
+        #    scene_change_frame = AnalyzeMovie()
+        #    if scene_change_frame > 0:
+        #        continue scene_change_frame
+
+        scene_change_frame = AnalyzeLastResort(distances, threshold=0.03)
+        if scene_change_frame > 0:
+            break
+
     if scene_change_frame > 0:
-        return scene_change_frame
-
-    gray_histograms = LoadGrayScaleHistogramList(dump_dirname)
-
-    scene_change_frame = AnalyzeBlackWhiteFrame(
-        gray_histograms, check_first_frame=check_first_frame)
-    if scene_change_frame > 0:
-        return scene_change_frame
-
-    scene_change_frame = AnalyzeDistances(
-        distances, threshold=0.2, trim=14, check_first_frame=check_first_frame)
-    if scene_change_frame > 0:
-        return scene_change_frame
-
-    scene_change_frame = AnalyzeDistances(distances, threshold=0.2)
-    if scene_change_frame > 0:
-        return scene_change_frame
-
-#   AnalyzeMovie cannot handle interlaced frame correctly.
-#    scene_change_frame = AnalyzeMovie()
-#    if scene_change_frame > 0:
-#        continue scene_change_frame
-
-    return AnalyzeLastResort(distances, threshold=0.03)
+        return scene_change_frame + start_offset
+    elif scene_change_frame < 0:
+        return scene_change_frame - start_offset
+    else:
+        return 0
 
 
 def Main():
@@ -282,24 +354,33 @@ def Main():
         logging.error('%s already exists.', output_filename)
         return
 
-    (options, unused_args) = ParseOptions()
+    options = ParseOptions()
 
     frame_list = []
     with open(silence_filename) as silence_file:
         # skip first line
         silence_file.readline()
         movie_delay = GetDelay(movie_filename)
+        time_list = []
         for line in silence_file:
-            line = line.strip()
-            values = line.split(' ')
-            start = TimeToFrameNum(float(values[0]) - movie_delay)
-            end = TimeToFrameNum(float(values[1]) - movie_delay) + 1
-            frame_list.append([start, end])
+            (start, end) = map((lambda x: float(x) - movie_delay),
+                               line.strip().split(' '))
+            (filtered_start, filtered_end) = FilterSilenceTime(
+                options, start, end)
+            time_list.append([start, filtered_start, filtered_end, end])
+        for item in time_list:
+            frame_list.append({
+                'start': TimeToFrameNum(item[0]),
+                'filtered_start': TimeToFrameNum(item[1]),
+                'filtered_end': TimeToFrameNum(item[2]) + 1,
+                'end': TimeToFrameNum(item[3]) + 1,
+            })
 
     if not options.no_dump:
         Dump(movie_filename, frame_list)
 
-    results = [Analyze(GetDumpDirname(i), frame_list[i]) for i in xrange(len(frame_list))]
+    results = [Analyze(options, GetDumpDirname(i), frame_list[i])
+               for i in xrange(len(frame_list))]
 
     assert len(frame_list) == len(results)
     with open(output_filename, 'w') as output_file:
@@ -310,8 +391,8 @@ def Main():
             else:
                 mode = 'range'
                 result = -result
-            start = frame_list[i][0]
-            end = frame_list[i][1]
+            start = frame_list[i]['start']
+            end = frame_list[i]['end']
             if result % 2 == 0:
                 target = '%d' % (start + result / 2)
             else:
