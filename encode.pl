@@ -76,7 +76,7 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
     $CLEAN_DIR = $options{no_clean} ? undef : $working_dirname;
 
     if (!mkdir($working_dirname) || !chdir($working_dirname)) {
-        die "Failed to create a working directory.";
+        die "Failed to create a working directory. [$working_dirname]";
     }
 
     my $output_filename = "$dest_dirname/$basename.mp4";
