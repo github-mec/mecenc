@@ -13,7 +13,7 @@ import numpy
 
 
 FRAME_DURATION = 1001 / 30000.0
-HISTOGRAM_3D_BIN_N = 12
+HISTOGRAM_3D_BIN_N = 10
 
 
 def ParseOptions(args=None):
@@ -23,7 +23,7 @@ def ParseOptions(args=None):
     parser.add_option('--scene_time_filter', dest='scene_time_filter',
                       default=None,
                       help=('Comma-separated [start,duration) of scene'
-                            ' start/end positions in sec.'))
+                            ' start/duration positions in sec.'))
     (options, _) = parser.parse_args(args)
 
     if options.scene_time_filter is not None:
@@ -397,7 +397,8 @@ def Main():
                 target = '%d' % (start + result / 2)
             else:
                 target = '%.1f' % round(start + result / 2.0, 1)
-            output_file.write('%s %s %d %d %s\n' % (i, mode, start, end, target))
+            output_file.write('%s %s %d %d %s\n' % (
+                i, mode, start, end, target))
 
 
 def MainTest():

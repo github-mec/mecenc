@@ -94,6 +94,18 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
     } else {
         execute(qq|$script_dirname/scene_change_detector.py|);
         execute(qq|$script_dirname/scene_filter.pl|);
+        execute(qq|$script_dirname/scene_offset_extractor.pl|);
+
+        if (-f 'scene_offset.txt') {
+            open my $offset_ifh, '<', 'scene_offset.txt' or die "Failed to open scene_offset.txt";
+            my ($start, $duration) = split '\s+', <$offset_ifh>;
+            close $offset_ifh;
+            execute(qq|mv "scene.txt" "scene.txt.orig"|);
+            execute(qq|mv "scene_filtered.txt" "scene_filtered.txt.orig"|);
+            execute(qq|$script_dirname/scene_change_detector.py --scene_time_filter=$start,$duration --no_dump=True|);
+            execute(qq|$script_dirname/scene_filter.pl|);
+        }
+
         execute(qq|$script_dirname/make_index.pl|);
         execute(qq|$script_dirname/salvage.pl "$log_dirname"|);
         if ($options{public_log}) {

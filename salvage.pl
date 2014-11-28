@@ -7,7 +7,10 @@ use constant {
         'raw_silence.txt',
         'silence.txt',
         'scene.txt',
+        'scene.txt.orig',
         'scene_filtered.txt',
+        'scene_filtered.txt.orig',
+        'scene_offset.txt',
         'index.html',
     ],
     TARGET_DIRNAMES => [

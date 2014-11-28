@@ -27,7 +27,7 @@ for my $line (@lines) {
 
 my ($start, $duration) = DetectSceneChangeRange(@values);
 open my $ofh, '>', 'scene_offset.txt' or die "ailed to create scene_offset.txt.";
-print $ofh sprintf("%.3f\n%.3f\n", $start, $duration);
+print $ofh sprintf("%.3f %.3f", $start, $duration);
 close $ofh;
 
 exit(0);
