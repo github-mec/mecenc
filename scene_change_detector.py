@@ -87,8 +87,8 @@ def DumpMoviesInternal(movie_filename, frame_list, file_index_offset):
     output_filenames = []
     for i in xrange(len(frame_list)):
         dirname = GetDumpDirname(i + file_index_offset)
-        start = frame_list[i][0]
-        end = frame_list[i][1] + 1
+        start = frame_list[i]['start']
+        end = frame_list[i]['end'] + 1
         output_filename = '%s/dump.mp4v' % dirname
         output_filenames.append(output_filename)
         command.extend([
