@@ -165,9 +165,9 @@ encode.pl --scenelistfile scenelistfile
 --logdir:  Log directory, which contains data for CM cut feature.
 --no_encode:  Generate log data and scenelist file (for --scenelistfile) only.
 --no_lock:  Run scripts without lock.
---no_clean:  Don't remove a temp directory.
---no_scale:  Don't scale movies.
---no_decimate:  Don't decimate frames and keep original fps.
+--no_clean:  Do not remove a temp directory.
+--no_scale:  Do not scale movies.
+--no_decimate:  Do not decimate frames and keep original fps.
 --interlaced:  Keep interlace.
 --scenefile:  Use pre-generated scene file (scene_filtered.txt) for CM cut.
 --scenelistfile: Scenelist file for batch encoding.
