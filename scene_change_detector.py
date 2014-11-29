@@ -62,17 +62,23 @@ def FilterSilenceTime(options, start, end):
     (filter_start, filter_duration) = map(
         float, options.scene_time_filter.split(','))
     filter_start = filter_start + int(start)
+    result = []
     while filter_start < end:
         filter_end = filter_start + filter_duration
         if filter_start < start:
             if start < filter_end:
-                return [start, filter_end]
+                result.append([start, filter_end])
         elif end < filter_end:
-            return [filter_start, end]
+            result.append([filter_start, end])
         else:
-            return [filter_start, filter_end]
+            result.append([filter_start, filter_end])
         filter_start = filter_start + 1
-    return [start, end]
+    result.reverse()
+
+    for value in result:
+        if start + 0.2 < value[0] and value[1] < end - 0.2:
+            return value
+    return result[0]
 
 
 def GetDelay(filename):
@@ -280,8 +286,8 @@ def AnalyzeLastResort(distances, threshold):
 
 
 def Analyze(options, dump_dirname, frame):
-    if frame['filtered_start'] == frame['filtered_end']:
-        return 0
+    if frame['filtered_start'] < 0 or frame['filtered_end'] < 0:
+        return -1
 
     is_scene_time_filter_enabled = options.scene_time_filter is not None
     if is_scene_time_filter_enabled:
@@ -369,10 +375,12 @@ def Main():
                 options, start, end)
             time_list.append([start, filtered_start, filtered_end, end])
         for item in time_list:
+            filtered_start = TimeToFrameNum(item[1]) if item[1] >= 0 else -1
+            filtered_end = TimeToFrameNum(item[2]) + 1 if item[2] >= 0 else -1
             frame_list.append({
                 'start': TimeToFrameNum(item[0]),
-                'filtered_start': TimeToFrameNum(item[1]),
-                'filtered_end': TimeToFrameNum(item[2]) + 1,
+                'filtered_start': filtered_start,
+                'filtered_end': filtered_end,
                 'end': TimeToFrameNum(item[3]) + 1,
             })
 
