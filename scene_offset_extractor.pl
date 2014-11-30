@@ -6,7 +6,7 @@ use utf8;
 
 use List::Util;
 
-# TODO: Use information about CM length. (5, 15, 30 or 60sec)
+# TODO: Use information about CM length. (5, 15, 30, 60 or 90 sec)
 
 open my $ifh, '<', 'scene_filtered.txt' or die "Failed to open scene_filtered.txt.";
 my @lines = <$ifh>;
@@ -14,7 +14,7 @@ close $ifh;
 
 @lines = grep {$_ =~ m/exact.+CM$/} @lines;
 if ($#lines == -1) {
-    # TODO: Handle this condiiton.
+    # TODO: Handle this condition.
     die "There is no CM.";
 }
 
