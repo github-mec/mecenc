@@ -11,9 +11,8 @@ import subprocess
 import sys
 import numpy
 
-
 FRAME_DURATION = 1001 / 30000.0
-HISTOGRAM_3D_BIN_N = 10
+HISTOGRAM_BIN_N = 64
 
 
 def ParseOptions(args=None):
@@ -175,44 +174,45 @@ def AnalyzeMovie(dirname):
     return 0
 
 
-def Load3dHistogramBgr(filename):
+def LoadHistogramsBgr(filename):
     im = cv2.imread(filename)
     if im == None:
         logging.error('Failed to load image as BGR. [%s]', filename)
         return None
-    histogram = cv2.calcHist(
-        cv2.split(im), [0, 1, 2], None,
-        [HISTOGRAM_3D_BIN_N, HISTOGRAM_3D_BIN_N, HISTOGRAM_3D_BIN_N],
-        [0, 256, 0, 256, 0, 256])
-    cv2.normalize(histogram, histogram, alpha=1, norm_type=cv2.NORM_L1)
-    return histogram
+    histograms = []
+    for channel in cv2.split(im):
+        histogram = cv2.calcHist(
+            [channel], [0], None, [HISTOGRAM_BIN_N], [0, 256])
+        cv2.normalize(histogram, histogram, alpha=1, norm_type=cv2.NORM_L1)
+        histograms.append(histogram)
+    return histograms
 
 
 def ConvertForEmd(histogram):
-    array = [(histogram[b_i][g_i][r_i], b_i, g_i, r_i)
-             for b_i in xrange(HISTOGRAM_3D_BIN_N)
-             for g_i in xrange(HISTOGRAM_3D_BIN_N)
-             for r_i in xrange(HISTOGRAM_3D_BIN_N)
-             if histogram[b_i][g_i][r_i] > 0]
+    array = [(histogram[i][0], i)
+             for i in xrange(HISTOGRAM_BIN_N)
+             if histogram[i] > 0]
     f64 = cv.fromarray(numpy.array(array))
     f32 = cv.CreateMat(f64.rows, f64.cols, cv.CV_32FC1)
     cv.Convert(f64, f32)
     return f32
 
 
-def CalcEmd(histogram1, histogram2):
-    data1 = ConvertForEmd(histogram1)
-    data2 = ConvertForEmd(histogram2)
-    return cv.CalcEMD2(data1, data2, cv.CV_DIST_L2) / HISTOGRAM_3D_BIN_N
+def CalcEmd(histograms1, histograms2):
+    result = 0
+    for i in xrange(len(histograms1)):
+        data1 = ConvertForEmd(histograms1[i])
+        data2 = ConvertForEmd(histograms2[i])
+        distance = cv.CalcEMD2(data1, data2, cv.CV_DIST_L2) / HISTOGRAM_BIN_N
+        result = result + distance ** 2
+    return result ** 0.5
 
 
-def Load3dHistogramDistances(image_dirname):
-    # TODO: 3D histogram distance is overkill and consume CPU resources.
-    #       Let's use three 1D histogram distance instead.
+def LoadHistogramDistances(image_dirname):
     image_filenames = GetImageFilenames(image_dirname)
-    histograms = [Load3dHistogramBgr(filename) for filename in image_filenames]
-    return [CalcEmd(histograms[i - 1], histograms[i])
-            for i in xrange(1, len(histograms))]
+    histograms_list = [LoadHistogramsBgr(filename) for filename in image_filenames]
+    return [CalcEmd(histograms_list[i - 1], histograms_list[i])
+            for i in xrange(1, len(histograms_list))]
 
 
 def LoadGrayScaleHistogram(filename):
@@ -279,7 +279,7 @@ def Analyze(options, dump_dirname, frame):
         check_first_frame = frame['start'] < 5
         trim_frames = 14
 
-    distances = Load3dHistogramDistances(dump_dirname)
+    distances = LoadHistogramDistances(dump_dirname)
     assert len(distances) == (frame['end'] - frame['start']) * 2 + 1
 
     start_offset = (frame['filtered_start'] - frame['start']) * 2
