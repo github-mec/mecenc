@@ -56,9 +56,9 @@ for my $line (@lines) {
     my $in3 = sprintf("%04d.png", $target - $start + 1);
     my $in4 = sprintf("%04d.png", $end - $start + 2);
 
-    `convert -resize 224x126 "$from_dirname/$in1" "$to_dirname/1.png"`;
-    `convert -resize 224x126 "$from_dirname/$in2" "$to_dirname/2.png"`;
-    `convert -resize 224x126 "$from_dirname/$in3" "$to_dirname/3.png"`;
-    `convert -resize 224x126 "$from_dirname/$in4" "$to_dirname/4.png"`;
+    `convert -resize 224x126 "$from_dirname/$in1" "$to_dirname/1.jpg"`;
+    `convert -resize 224x126 "$from_dirname/$in2" "$to_dirname/2.jpg"`;
+    `convert -resize 224x126 "$from_dirname/$in3" "$to_dirname/3.jpg"`;
+    `convert -resize 224x126 "$from_dirname/$in4" "$to_dirname/4.jpg"`;
     `cp "$from_dirname/dump.mp4v" "$to_dirname"`;
 }
