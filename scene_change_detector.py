@@ -91,62 +91,22 @@ def GetDelay(filename):
     return float(re.search('Duration:.+start:\s+([\d\.]+)', output).group(1))
 
 
-def DumpMoviesInternal(movie_filename, frame_list, file_index_offset):
+def DumpImages(movie_filename, frame_list):
     command = ['ffmpeg', '-i', '%s' % movie_filename]
     output_filenames = []
     for i in xrange(len(frame_list)):
-        dirname = GetDumpDirname(i + file_index_offset)
+        dirname = GetDumpDirname(i)
         start = frame_list[i]['start']
         end = frame_list[i]['end'] + 1
-        output_filename = '%s/dump.mp4v' % dirname
+        output_filename = '%s/%s.png' % (dirname, '%04d')
         output_filenames.append(output_filename)
         command.extend([
                 '-filter:v', (
                     'trim=start_frame=%d:end_frame=%d,separatefields'
-                    ',setpts=PTS-STARTPTS' % (start, end)),
-                '-vcodec', 'libx264',
+                    ',scale=width=480:height=270' % (start, end)),
+                '-qscale', '0.5',
                 '-an',
-                '-preset', 'veryfast',
-                '-f', 'mp4',
-                '-threads', '4',
                 output_filename])
-
-    process = subprocess.Popen(command, stdout=None, stderr=subprocess.PIPE)
-    output = process.communicate()[1]
-    if process.returncode != 0:
-        logging.error('Failed to dump movies.')
-        sys.exit(process.returncode)
-    
-    return output_filenames
-
-
-def DumpMovies(movie_filename, frame_list):
-    # Limit parallel num due to memory limit. 30
-    # e.g. parallel encode consumes 6-8GB memory.
-    # TODO: Dump images directly instead of movies.
-    MAX_PARALLEL_NUM = 16
-    total_num = len(frame_list)
-    parallel_num = total_num % MAX_PARALLEL_NUM
-    parallel_num = parallel_num if parallel_num != 0 else MAX_PARALLEL_NUM
-    consumed_num = 0
-    output_filenames = []
-    while consumed_num < total_num:
-        start = consumed_num
-        end = consumed_num + parallel_num
-        output_filenames.extend(
-            DumpMoviesInternal(movie_filename, frame_list[start:end], start))
-        consumed_num = end
-        parallel_num = min(total_num - consumed_num, MAX_PARALLEL_NUM)
-    return output_filenames
-
-
-def DumpImages(movie_filename, scene_index):
-    dump_dirname = GetDumpDirname(scene_index)
-    command = ['ffmpeg', '-i', movie_filename]
-    command.extend([
-            '-filter:v', 'scale=width=480:height=270',
-            '-qscale', '1',
-            '%s/%s' % (dump_dirname, "%04d.jpg")])
 
     process = subprocess.Popen(command, stdout=None, stderr=subprocess.PIPE)
     output = process.communicate()[1]
@@ -155,15 +115,34 @@ def DumpImages(movie_filename, scene_index):
         sys.exit(process.returncode)
 
 
+def CreateDumpedMovie(index):
+    dirname = GetDumpDirname(index)
+    input_filename = '%s/%s.png' % (dirname, '%04d')
+    output_filename = '%s/dump.mp4v' % dirname
+    command = ['ffmpeg', '-i', '%s' % input_filename]
+    command.extend([
+        '-an',
+        '-vcodec', 'libx264',
+        '-preset', 'veryfast',
+        '-f', 'mp4',
+        '-threads', '0',
+        output_filename])
+    process = subprocess.Popen(command, stdout=None, stderr=subprocess.PIPE)
+    output = process.communicate()[1]
+    if process.returncode != 0:
+        logging.error('Failed to create a dumped movie. index:%d.', i)
+        sys.exit(process.returncode)
+
+
 def Dump(movie_filename, frame_list):
-    movie_dump_filenames = DumpMovies(movie_filename, frame_list)
-    for i in xrange(len(movie_dump_filenames)):
-        DumpImages(movie_dump_filenames[i], i)
+    DumpImages(movie_filename, frame_list)
+    for i in xrange(len(frame_list)):
+        CreateDumpedMovie(i)
 
 
 def GetImageFilenames(image_dirname):
     image_filenames = []
-    matcher = re.compile(r'\.jpg$')
+    matcher = re.compile(r'\.png$')
     for filename in sorted(os.listdir(image_dirname)):
         if matcher.search(filename):
             image_filenames.append(os.path.join(image_dirname, filename))

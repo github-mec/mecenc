@@ -53,7 +53,7 @@ for my $i (0..$#dirnames) {
         frameToTime($changed));
 
     push @output, '<div>';
-    my $template = '<img width="224px" height="126px" class="%s" src="dump/%s/%d.jpg">';
+    my $template = '<img width="224px" height="126px" class="%s" src="dump/%s/%d.png">';
     push @output, 
         sprintf($template, $previous_type, $dirname, 1) .
         sprintf($template, $previous_type, $dirname, 2) .

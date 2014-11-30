@@ -51,14 +51,14 @@ for my $line (@lines) {
 
     ($start, $end, $target) =
         map {POSIX::floor($_ * 2 + 0.1)} ($start, $end, $target);
-    my $in1 = sprintf("%04d.jpg", 1);
-    my $in2 = sprintf("%04d.jpg", $target - $start);
-    my $in3 = sprintf("%04d.jpg", $target - $start + 1);
-    my $in4 = sprintf("%04d.jpg", $end - $start + 2);
+    my $in1 = sprintf("%04d.png", 1);
+    my $in2 = sprintf("%04d.png", $target - $start);
+    my $in3 = sprintf("%04d.png", $target - $start + 1);
+    my $in4 = sprintf("%04d.png", $end - $start + 2);
 
-    `cp "$from_dirname/$in1" "$to_dirname/1.jpg"`;
-    `cp "$from_dirname/$in2" "$to_dirname/2.jpg"`;
-    `cp "$from_dirname/$in3" "$to_dirname/3.jpg"`;
-    `cp "$from_dirname/$in4" "$to_dirname/4.jpg"`;
+    `convert -resize 224x126 "$from_dirname/$in1" "$to_dirname/1.png"`;
+    `convert -resize 224x126 "$from_dirname/$in2" "$to_dirname/2.png"`;
+    `convert -resize 224x126 "$from_dirname/$in3" "$to_dirname/3.png"`;
+    `convert -resize 224x126 "$from_dirname/$in4" "$to_dirname/4.png"`;
     `cp "$from_dirname/dump.mp4v" "$to_dirname"`;
 }
