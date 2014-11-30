@@ -75,6 +75,9 @@ def FilterSilenceTime(options, start, end):
         filter_start = filter_start + 1
     result.reverse()
 
+    if len(result) == 0:
+        return [-1, -1]
+
     for value in result:
         if start + 0.2 < value[0] and value[1] < end - 0.2:
             return value
