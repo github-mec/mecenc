@@ -95,7 +95,7 @@ my $video_delay = getVideoDelay($video_filename);
 my $audio_delay = 2624.0 / 48000.0;  # 2624 samples delay by neroAacEnc.
 for my $frame (@frame_list) {
     my $start = $frame->[0] * 1001.0 / 30000.0 + $video_delay + $audio_delay;
-    my $duration = dumpDuration(shift @video_temp_filenames);
+    my $duration = dumpDuration(shift @video_temp_filenames) - $audio_delay;
     my $temp_filename = sprintf("%s%02d.wav", $basename, $index);
     `ffmpeg -i "$audio_filename" -ss $start -t $duration "$temp_filename"`;
     $sox_command .= qq|"$temp_filename" |;
