@@ -99,6 +99,8 @@ for my $frame (@frame_list) {
     my $temp_filename = sprintf("%s%02d.wav", $basename, $index);
     `ffmpeg -i "$audio_filename" -ss $start -t $duration "$temp_filename"`;
     $sox_command .= qq|"$temp_filename" |;
+    # Audio delay is not required for the other frames.
+    $audio_delay = 0;
     $index++;
 }
 $sox_command .= qq#-t wav - | neroAacEnc -q 0.55 -ignorelength -if - -of "$audio_result_filename"#;
