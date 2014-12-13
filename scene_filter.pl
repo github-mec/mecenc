@@ -123,7 +123,6 @@ sub filterLogoDetection {
         my $is_body = 0;
         for (my $j = $start; $j <= $end; ++$j) {
             if ($logo_data[$j]) {
-                print "is_body. j=$j\n";
                 $is_body = 1;
                 last;
             }
