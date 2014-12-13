@@ -35,6 +35,7 @@ def ParseLogoInformation(logo_name):
     assert len(required_keys) == len(info), (
         '%s should have all of %s' % (
             input_filename, [key for key in required_keys]))
+    assert info['width'] % 2 == 0, 'Logo width should be even number.'
     return info
 
 
@@ -147,8 +148,8 @@ def DumpImages(options, movie_filename, frame_list):
         logo_info = ParseLogoInformation(options.logo_info)
         offset_x = logo_info['offset_x']
         offset_y = logo_info['offset_y']
-        width = logo_info['width'] + 1
-        height = logo_info['height'] + 1
+        width = logo_info['width']
+        height = logo_info['height']
 
         extra_offset_x = 4 if offset_x >= 4 else offset_x
         extra_offset_y = 4 if offset_y >= 4 else offset_y
