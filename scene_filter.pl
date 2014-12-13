@@ -99,8 +99,10 @@ sub checkDiff {
 
 sub dumpLine {
     my $a = shift;
-    my ($min, $max, $exact) = (split '\s+', $a)[2, 3, 4];
-        
+    my $min = getLower($a);
+    my $max = getUpper($a);
+    my $exact = getExact($a);
+
     if (defined $exact && $a =~ m/exact/) {
         $exact = POSIX::floor($exact * 10 + 0.1) / 10.0;
         return (1, $exact, $exact);
@@ -125,8 +127,8 @@ sub filterLogoDetection {
     close $fh;
 
     for (my $i = 1; $i <= $#lines; ++$i) {
-        my $start_frame = (dumpLine($lines[$i - 1]))[2];
-        my $end_frame = (dumpLine($lines[$i]))[1];
+        my $start_frame = GetUpper($lines[$i - 1])
+        my $end_frame = GetLower($lines[$i])
         my $start = POSIX::ceil(getTimeFromFrameNum($start_frame));
         my $end = POSIX::floor(getTimeFromFrameNum($end_frame));
         my $is_body = 0;
@@ -168,6 +170,21 @@ sub filterAggregateBody {
         $previous_type = $type;
     }
     return @lines;
+}
+
+sub getLower {
+    my $line = shift;
+    return (split('\s+', $line))[2];
+}
+
+sub getUpper {
+    my $line = shift;
+    return (split('\s+', $line))[3];
+}
+
+sub getExact {
+    my $line = shift;
+    return (split('\s+', $line))[4];
 }
 
 sub getType {
