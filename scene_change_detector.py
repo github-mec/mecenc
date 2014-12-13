@@ -15,6 +15,29 @@ FRAME_DURATION = 1001 / 30000.0
 HISTOGRAM_BIN_N = 64
 
 
+def ParseLogoInformation(logo_name):
+    logo_dir = os.path.join(
+        os.path.abspath(os.path.dirname(__file__)), 'logo')
+    required_keys = set(('offset_x', 'offset_y', 'width', 'height'))
+    info = {}
+    input_filename = '%s/%s.txt' % (logo_dir, logo_name)
+    with open(input_filename) as input_file:
+        for line in input_file:
+            (key, value) = line.split(':')
+            key.strip()
+            value.strip()
+            assert key in required_keys, (
+                'Invalid key "%s" in %s' % (key, input_filename))
+            assert int(value) >= 0, (
+                'Value for key "%s" in %s should be positive' % (
+                    key, input_filename))
+            info[key] = int(value)
+    assert len(required_keys) == len(info), (
+        '%s should have all of %s' % (
+            input_filename, [key for key in required_keys]))
+    return info
+
+
 def ParseOptions(args=None):
     parser = optparse.OptionParser()
     parser.add_option('--no_dump', dest='no_dump', default=False,
@@ -23,6 +46,10 @@ def ParseOptions(args=None):
                       default=None,
                       help=('Comma-separated [start,duration) of scene'
                             ' start/duration positions in sec.'))
+    parser.add_option('--logo_info', dest='logo_info', default=None,
+                      help=('logo information for the offset and the size'
+                            'of logo.'))
+
     (options, _) = parser.parse_args(args)
 
     if options.scene_time_filter is not None:
@@ -34,6 +61,10 @@ def ParseOptions(args=None):
         if not 0 <= filter_duration < 1:
             raise ValueError(
                 'Duration of the CM time filter should be in [0,1)')
+
+    if options.logo_info is not None:
+        # Smoke test
+        ParseLogoInformation(options.logo_info)
 
     return options
 
@@ -53,7 +84,14 @@ def GetDumpDirname(scene_index):
     return dirname
 
 
-#TODO: Return multiple ranges.
+def GetPeriodicalDumpDirname():
+    dirname = "periodical_dump"
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    return dirname
+
+
+# TODO: Return multiple ranges.
 def FilterSilenceTime(options, start, end):
     if options.scene_time_filter is None:
         return [start, end]
@@ -90,15 +128,13 @@ def GetDelay(filename):
     return float(re.search('Duration:.+start:\s+([\d\.]+)', output).group(1))
 
 
-def DumpImages(movie_filename, frame_list):
+def DumpImages(options, movie_filename, frame_list):
     command = ['ffmpeg', '-i', '%s' % movie_filename]
-    output_filenames = []
     for i in xrange(len(frame_list)):
         dirname = GetDumpDirname(i)
         start = frame_list[i]['start']
         end = frame_list[i]['end'] + 1
         output_filename = '%s/%s.png' % (dirname, '%04d')
-        output_filenames.append(output_filename)
         command.extend([
                 '-filter:v', (
                     'trim=start_frame=%d:end_frame=%d,separatefields'
@@ -106,6 +142,27 @@ def DumpImages(movie_filename, frame_list):
                 '-qscale', '0.5',
                 '-an',
                 output_filename])
+
+    if options.logo_info is not None:
+        logo_info = ParseLogoInformation(options.logo_info)
+        offset_x = logo_info['offset_x']
+        offset_y = logo_info['offset_y']
+        width = logo_info['width'] + 1
+        height = logo_info['height'] + 1
+
+        extra_offset_x = 4 if offset_x >= 4 else offset_x
+        extra_offset_y = 4 if offset_y >= 4 else offset_y
+        dirname = GetPeriodicalDumpDirname()
+        output_filename = '%s/%s.png' % (dirname, '%06d')
+        command.extend([
+            '-filter:v', (
+                'fps=fps=1:round=down'
+                ',crop=%d:%d:%d:%d,yadif,crop=%d:%d:%d:%d' % (
+                    width + 8, height + 8,
+                    offset_x - extra_offset_x, offset_y - extra_offset_y,
+                    width, height, extra_offset_x, extra_offset_y)),
+            '-an',
+            output_filename])
 
     process = subprocess.Popen(command, stdout=None, stderr=subprocess.PIPE)
     output = process.communicate()[1]
@@ -133,8 +190,8 @@ def CreateDumpedMovie(index):
         sys.exit(process.returncode)
 
 
-def Dump(movie_filename, frame_list):
-    DumpImages(movie_filename, frame_list)
+def Dump(options, movie_filename, frame_list):
+    DumpImages(options, movie_filename, frame_list)
     for i in xrange(len(frame_list)):
         CreateDumpedMovie(i)
 
@@ -367,7 +424,8 @@ def Main():
             })
 
     if not options.no_dump:
-        Dump(movie_filename, frame_list)
+        # TODO: Extract dump logic as another script.
+        Dump(options, movie_filename, frame_list)
 
     results = [Analyze(options, GetDumpDirname(i), frame_list[i])
                for i in xrange(len(frame_list))]

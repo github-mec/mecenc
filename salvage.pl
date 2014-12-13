@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use constant {
     TARGET_FILENAMES => [
+        'logo.txt',
         'raw_silence.txt',
         'silence.txt',
         'scene.txt',

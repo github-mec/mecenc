@@ -22,8 +22,7 @@ my $base_dirname = $ENV{HOME} . '/enc';
 $options{tempdir} = "$base_dirname/encoding";
 $options{destdir} = "$base_dirname/encoded";
 $options{logdir} = "$base_dirname/log";
-GetOptions(\%options, qw/help no_scale no_decimate no_encode no_clean no_lock public_log interlaced tempdir=s destdir=s logdir=s scenefile=s scenelistfile=s/) or die help();
-
+GetOptions(\%options, qw/help no_scale no_decimate no_encode no_clean no_lock public_log interlaced tempdir=s destdir=s logdir=s scenefile=s scenelistfile=s logo=s/) or die help();
 
 if ($options{help}) {
     die help();
@@ -92,7 +91,13 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
     if (defined $scene_filename) {
         execute(qq|cp "$scene_filename" "scene_filtered.txt"|);
     } else {
-        execute(qq|$script_dirname/scene_change_detector.py|);
+        if ($options{logo}) {
+            my $logo = $options{logo};
+            execute(qq|$script_dirname/scene_change_detector.py --logo=$logo|);
+            execute(qq|$script_dirname/logo_detector.py --logo=$logo|);
+        } else {
+            execute(qq|$script_dirname/scene_change_detector.py|);
+        }
         execute(qq|$script_dirname/scene_filter.pl|);
         execute(qq|$script_dirname/scene_offset_extractor.pl|);
 
