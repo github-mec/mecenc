@@ -127,8 +127,8 @@ sub filterLogoDetection {
     close $fh;
 
     for (my $i = 1; $i <= $#lines; ++$i) {
-        my $start_frame = GetUpper($lines[$i - 1])
-        my $end_frame = GetLower($lines[$i])
+        my $start_frame = getUpper($lines[$i - 1])
+        my $end_frame = getLower($lines[$i])
         my $start = POSIX::ceil(getTimeFromFrameNum($start_frame));
         my $end = POSIX::floor(getTimeFromFrameNum($end_frame));
         my $is_body = 0;
