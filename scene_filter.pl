@@ -76,9 +76,6 @@ sub checkDiff {
         if (146.4 <= $diff_min && $diff_min <= 152.6) {
             return 1;
         }
-        if (296.4 <= $diff_min && $diff_min <= 302.6) {
-            return 1;
-        }
         if (446.4 <= $diff_min && $diff_min <= 452.6) {
             return 1;
         }

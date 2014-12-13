@@ -52,7 +52,7 @@ sub checkDistance {
     my $min_range = $b_min - $a_max;
     my $max_range = $b_max - $a_min;
 
-    my @ranges = (5, 10, 15, 30, 60, 90);
+    my @ranges = (5, 15, 30, 60, 90);
     for my $range (@ranges) {
         if ($min_range < $range && $range < $max_range) {
             return 1;
