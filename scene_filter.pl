@@ -48,6 +48,7 @@ for my $value (@candidates) {
     }
 }
 
+@result = filterLogoDetection(@result);
 @result = filterSingleCm(@result);
 @result = filterAggregateBody(@result);
 
@@ -99,6 +100,41 @@ sub dumpLine {
     }
 }
 
+sub filterLogoDetection {
+    my @lines = @_;
+    my $filename = 'logo.txt';
+    if (!-e $filename) {
+        return @lines;
+    }
+
+    open my $fh, '<', $filename or die 'Failed to open $filename.';
+    my @logo_data = ();
+    for my $data (<$fh>) {
+        my $has_logo = (split ' ', $data)[1];
+        push @logo_data, ($has_logo eq 'True');
+    }
+    close $fh;
+
+    for (my $i = 1; $i <= $#lines; ++$i) {
+        my $start_frame = (dumpLine($lines[$i - 1]))[2];
+        my $end_frame = (dumpLine($lines[$i]))[1];
+        my $start = POSIX::ceil(getTimeFromFrameNum($start_frame));
+        my $end = POSIX::floor(getTimeFromFrameNum($end_frame));
+        my $is_body = 0;
+        for (my $j = $start; $j <= $end; ++$j) {
+            if ($logo_data[$j]) {
+                print "is_body. j=$j\n";
+                $is_body = 1;
+                last;
+            }
+        }
+        if ($is_body) {
+            setType($lines[$i - 1], 'BODY');
+        }
+    }
+    return @lines;
+}
+
 sub filterSingleCm {
     my @lines = @_;
     for (my $i = 1; $i < $#lines - 1; ++$i)  {
@@ -129,4 +165,16 @@ sub filterAggregateBody {
 sub getType {
     my $line = shift;
     return (split('\s+', $line))[5];
+}
+
+sub setType {
+    my ($line, $type) = @_[0, 1];
+    my @values = split('\s+', $line);
+    $values[5] = $type;
+    $_[0] = join(' ', @values);
+}
+
+sub getTimeFromFrameNum {
+    my $frame_num = shift;
+    return $frame_num * 1001 / 30000.0;
 }
