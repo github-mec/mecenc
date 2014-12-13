@@ -49,7 +49,7 @@ for my $value (@candidates) {
 }
 
 @result = filterLogoDetection(@result);
-@result = filterSingleCm(@result);
+@result = filterShortCmGroup(@result);
 @result = filterAggregateBody(@result);
 
 open my $output_fh, '>', $output_filename or die "Failed to open file. [$output_filename]";
@@ -145,15 +145,36 @@ sub filterLogoDetection {
     return @lines;
 }
 
-sub filterSingleCm {
+sub filterShortCmGroup {
     my @lines = @_;
-    for (my $i = 1; $i < $#lines - 1; ++$i) {
-        if (getType($lines[$i - 1]) eq 'BODY' &&
-            getType($lines[$i]) eq 'CM' &&
-            getType($lines[$i + 1]) eq 'BODY') {
-            splice @lines, $i, 1;
-            --$i;
+    my $first_body_index = undef;
+    for (my $i = 0; $i <= $#lines; ++$i) {
+        if (getType($lines[$i]) eq 'BODY') {
+            $first_body_index = $i;
+            last;
         }
+    }
+
+    my $cm_start_index = undef;
+    for (my $i = $first_body_index + 1; $i <= $#lines - 1; ++$i) {
+        my $type = getType($lines[$i]);
+        if ($type eq 'CM') {
+            $cm_start_index //= $i;
+            next;
+        }
+        if ($type ne 'BODY') {
+            die 'Unexpectd chunk type: $type';
+        }
+        if ($cm_start_index) {
+            my $duration = getTimeFromFrameNum(
+                getLower($lines[$i]) - getUpper($lines[$cm_start_index]));
+            if ($duration < 25) {
+                my $remove_num = $i - $cm_start_index;
+                splice @lines, $cm_start_index, $remove_num;
+                $i -= $remove_num;
+            }
+        }
+        $cm_start_index = undef;
     }
     return @lines;
 }
