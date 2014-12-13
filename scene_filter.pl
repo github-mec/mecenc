@@ -127,8 +127,8 @@ sub filterLogoDetection {
     close $fh;
 
     for (my $i = 1; $i <= $#lines; ++$i) {
-        my $start_frame = getUpper($lines[$i - 1])
-        my $end_frame = getLower($lines[$i])
+        my $start_frame = getUpper($lines[$i - 1]);
+        my $end_frame = getLower($lines[$i]);
         my $start = POSIX::ceil(getTimeFromFrameNum($start_frame));
         my $end = POSIX::floor(getTimeFromFrameNum($end_frame));
         my $is_body = 0;
@@ -147,7 +147,7 @@ sub filterLogoDetection {
 
 sub filterSingleCm {
     my @lines = @_;
-    for (my $i = 1; $i < $#lines - 1; ++$i)  {
+    for (my $i = 1; $i < $#lines - 1; ++$i) {
         if (getType($lines[$i - 1]) eq 'BODY' &&
             getType($lines[$i]) eq 'CM' &&
             getType($lines[$i + 1]) eq 'BODY') {
