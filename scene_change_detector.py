@@ -36,6 +36,7 @@ def ParseLogoInformation(logo_name):
         '%s should have all of %s' % (
             input_filename, [key for key in required_keys]))
     assert info['width'] % 2 == 0, 'Logo width should be even number.'
+    assert info['offset_x'] % 2 == 0, 'Logo offset_X should be even number.'
     return info
 
 
