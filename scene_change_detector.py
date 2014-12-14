@@ -93,10 +93,9 @@ def GetPeriodicalDumpDirname():
     return dirname
 
 
-# TODO: Return multiple ranges.
-def FilterSilenceTime(options, start, end):
+def FilterSilenceRanges(options, start, end):
     if options.scene_time_filter is None:
-        return [start, end]
+        return ((start, end),)
 
     (filter_start, filter_duration) = map(
         float, options.scene_time_filter.split(','))
@@ -115,12 +114,10 @@ def FilterSilenceTime(options, start, end):
     result.reverse()
 
     if len(result) == 0:
-        return [-1, -1]
-
-    for value in result:
-        if start + 0.2 < value[0] and value[1] < end - 0.2:
-            return value
-    return result[0]
+        return ()
+    if end - 0.2 < result[-1][1]:
+        result.insert(0, result.pop())
+    return result
 
 
 def GetDelay(filename):
@@ -327,7 +324,7 @@ def AnalyzeLastResort(distances, threshold):
 
 
 def Analyze(options, dump_dirname, frame):
-    if frame['filtered_start'] < 0 or frame['filtered_end'] < 0:
+    if not frame['filtered_ranges']:
         return -1
 
     is_scene_time_filter_enabled = options.scene_time_filter is not None
@@ -339,51 +336,81 @@ def Analyze(options, dump_dirname, frame):
         trim_frames = 14
 
     distances = LoadHistogramDistances(dump_dirname)
-    assert len(distances) == (frame['end'] - frame['start']) * 2 + 1
+    assert len(distances) == (frame['end'] - frame['start']) * 2 + 1, (
+        'Cannot load the histograms of the dumped images.')
 
-    start_offset = (frame['filtered_start'] - frame['start']) * 2
-    end_offset = (frame['filtered_end'] - frame['start']) * 2 + 1
-    distances = distances[start_offset:end_offset]
+    filtered_distances = []
+    start_offsets = []
+    for filtered_range in frame['filtered_ranges']:
+        start_offset = (filtered_range['start'] - frame['start']) * 2
+        end_offset = (filtered_range['end'] - frame['start']) * 2 + 1
+        start_offsets.append(start_offset)
+        filtered_distances.append(distances[start_offset:end_offset])
 
-    scene_change_frame = 0
-    for _ in xrange(1):
+    scene_change_frame = -1
+    for i, d in enumerate(filtered_distances):
         scene_change_frame = AnalyzeDistances(
-            distances, threshold=0.3, trim=trim_frames,
+            d, threshold=0.3, trim=trim_frames,
             check_first_frame=check_first_frame)
         if scene_change_frame > 0:
-            break
+            return scene_change_frame + start_offsets[i]
 
-        gray_histograms = LoadGrayScaleHistogramList(dump_dirname)
-        scene_change_frame = AnalyzeBlackWhiteFrame(
-            gray_histograms, check_first_frame=check_first_frame)
-        if scene_change_frame > 0:
-            break
-
-        scene_change_frame = AnalyzeDistances(
-            distances, threshold=0.2, trim=trim_frames,
-            check_first_frame=check_first_frame)
-        if scene_change_frame > 0:
-            break
-
-        scene_change_frame = AnalyzeDistances(distances, threshold=0.2)
-        if scene_change_frame > 0:
-            break
-
-        #   AnalyzeMovie cannot handle interlaced frame correctly.
-        #    scene_change_frame = AnalyzeMovie()
-        #    if scene_change_frame > 0:
-        #        continue scene_change_frame
-
-        scene_change_frame = AnalyzeLastResort(distances, threshold=0.03)
-        if scene_change_frame > 0:
-            break
-
+    gray_histograms = LoadGrayScaleHistogramList(dump_dirname)
+    scene_change_frame = AnalyzeBlackWhiteFrame(
+        gray_histograms, check_first_frame=check_first_frame)
     if scene_change_frame > 0:
-        return scene_change_frame + start_offset
-    elif scene_change_frame < 0:
-        return scene_change_frame - start_offset
-    else:
-        return 0
+        return scene_change_frame + start_offsets[i]
+
+    for i, d in enumerate(filtered_distances):
+        scene_change_frame = AnalyzeDistances(
+            d, threshold=0.2, trim=trim_frames,
+            check_first_frame=check_first_frame)
+        if scene_change_frame > 0:
+            return scene_change_frame + start_offsets[i]
+
+    for i, d in enumerate(filtered_distances):
+        scene_change_frame = AnalyzeDistances(d, threshold=0.2)
+        if scene_change_frame > 0:
+            return scene_change_frame + start_offsets[i]
+
+    for i, d in enumerate(filtered_distances):
+        scene_change_frame = AnalyzeDistances(d, threshold=0.1)
+        if scene_change_frame > 0:
+            return scene_change_frame + start_offsets[i]
+
+    fallback_value = 0
+    fallback_frame = -1
+    for i, d in enumerate(filtered_distances):
+        scene_change_frame = AnalyzeLastResort(d, threshold=0.03)
+        if scene_change_frame > 0:
+            return scene_change_frame + start_offsets[i]
+        if scene_change_frame < fallback_value:
+            fallback_value = scene_change_frame
+            fallback_frame = scene_change_frame - start_offsets[i]
+
+    return fallback_frame
+
+
+def LoadSilenceFrameList(options, silence_filename, audio_delay):
+    frame_list = []
+    with open(silence_filename) as silence_file:
+        # skip first line
+        silence_file.readline()
+        for line in silence_file:
+            (start, end) = map((lambda x: float(x) - audio_delay),
+                               line.strip().split(' '))
+            result_ranges = []
+            for filtered_range in FilterSilenceRanges(options, start, end):
+                result_ranges.append({
+                    'start': TimeToFrameNum(filtered_range[0]),
+                    'end': TimeToFrameNum(filtered_range[1]) + 1,
+                })
+            frame_list.append({
+                'start': TimeToFrameNum(start),
+                'end': TimeToFrameNum(end) + 1,
+                'filtered_ranges': result_ranges,
+            })
+    return frame_list
 
 
 def Main():
@@ -402,28 +429,8 @@ def Main():
         return
 
     options = ParseOptions()
-
-    frame_list = []
-    with open(silence_filename) as silence_file:
-        # skip first line
-        silence_file.readline()
-        movie_delay = GetDelay(movie_filename)
-        time_list = []
-        for line in silence_file:
-            (start, end) = map((lambda x: float(x) - movie_delay),
-                               line.strip().split(' '))
-            (filtered_start, filtered_end) = FilterSilenceTime(
-                options, start, end)
-            time_list.append([start, filtered_start, filtered_end, end])
-        for item in time_list:
-            filtered_start = TimeToFrameNum(item[1]) if item[1] >= 0 else -1
-            filtered_end = TimeToFrameNum(item[2]) + 1 if item[2] >= 0 else -1
-            frame_list.append({
-                'start': TimeToFrameNum(item[0]),
-                'filtered_start': filtered_start,
-                'filtered_end': filtered_end,
-                'end': TimeToFrameNum(item[3]) + 1,
-            })
+    frame_list = LoadSilenceFrameList(
+        options, silence_filename, GetDelay(movie_filename))
 
     if not options.no_dump:
         # TODO: Extract dump logic as another script.
@@ -451,12 +458,7 @@ def Main():
                 i, mode, start, end, target))
 
 
-def MainTest():
-    print AnalyzeStrictSceneChangeByImages('.', True)
-
-
 if __name__ == '__main__':
 #    logging.basicConfig(level=logging.INFO)
     Main()
-#    MainTest()
     
