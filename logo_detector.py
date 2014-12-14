@@ -76,11 +76,9 @@ def RowDetect(logo_image_row, logo_range_row, target_row):
         base_color = (left + right) / 2
 
         too_dark_color = False
+        dark_threshold = base_color / 2 - 8
         for x in xrange(start, end):
-            if target_row[x] < logo_image_row[x] - 8:
-                too_dark_color = True
-                break
-            if target_row[x] < base_color - 8:
+            if target_row[x] < logo_image_row[x] + dark_threshold:
                 too_dark_color = True
                 break
         if too_dark_color:
@@ -162,7 +160,7 @@ def Main():
     if os.path.exists('logo.txt'):
         logging.error('logo.txt already exists.')
         sys.exit(-1)
-        
+
     logo_image = cv2.cvtColor(cv2.imread(logo_filename), cv2.COLOR_BGR2GRAY)
 
     image_path_regex = re.compile(r'\.(png|jpg)$')
