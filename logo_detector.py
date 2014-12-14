@@ -76,9 +76,12 @@ def RowDetect(logo_image_row, logo_range_row, target_row):
         base_color = (left + right) / 2
 
         too_dark_color = False
+        base_color_with_margin = base_color - 8
         dark_threshold = base_color / 2 - 8
         for x in xrange(start, end):
-            if target_row[x] < logo_image_row[x] + dark_threshold:
+            # Please pay attention for performance.
+            if target_row[x] < max(logo_image_row[x] + dark_threshold,
+                                   base_color_with_margin):
                 too_dark_color = True
                 break
         if too_dark_color:
