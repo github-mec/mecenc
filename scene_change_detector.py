@@ -26,17 +26,17 @@ def ParseLogoInformation(logo_name):
             (key, value) = line.split(':')
             key.strip()
             value.strip()
+            value = int(value)
             assert key in required_keys, (
                 'Invalid key "%s" in %s' % (key, input_filename))
-            assert int(value) >= 0, (
+            assert value >= 0, (
                 'Value for key "%s" in %s should be positive' % (
                     key, input_filename))
+            assert value % 4 == 0, '%s should be in multiples of 4.' % key
             info[key] = int(value)
     assert len(required_keys) == len(info), (
         '%s should have all of %s' % (
             input_filename, [key for key in required_keys]))
-    assert info['width'] % 2 == 0, 'Logo width should be even number.'
-    assert info['offset_x'] % 2 == 0, 'Logo offset_X should be even number.'
     return info
 
 
