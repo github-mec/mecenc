@@ -27,9 +27,11 @@ my $scene_filename = 'scene.txt';
 my $output_dirname = shift @ARGV;
 
 die "No such file. [$scene_filename]" unless -f $scene_filename;
+die "Please specify the output directory." unless $output_dirname;
 die "Output directory already exists. [$output_dirname]" if -e $output_dirname;
 
-File::Path::mkpath($output_dirname) or die;
+File::Path::mkpath($output_dirname)
+    or die qq|Failed to create the output directory "$output_dirname"|;
 
 for my $filename (@{TARGET_FILENAMES()}) {
     `cp "$filename" "$output_dirname/$filename"`;
@@ -38,7 +40,7 @@ for my $dirname (@{TARGET_DIRNAMES()}) {
     `cp -R "$dirname" "$output_dirname/$dirname"`;
 }
 
-open my $fh, '<', $scene_filename or die;
+open my $fh, '<', $scene_filename or die qq|Failed to load "$scene_filename".|;
 my @lines = <$fh>;
 close $fh;
 
