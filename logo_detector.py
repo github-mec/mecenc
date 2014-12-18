@@ -38,7 +38,7 @@ def LoadLogoRangeData(logo_image):
             if not value:
                 if start is not None:
                     end = x
-                    if end - start > 1:
+                    if 1 < end - start < 8:
                         color = float(sum(row[start:end])) / (end - start)
                         ranges[y].append((start, end, color))
                     start = None
