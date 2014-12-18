@@ -5,6 +5,30 @@ use warnings;
 use utf8;
 use constant {
     LOCK_DIR => '/tmp/encode_movie.lock',
+    # Map from logo names to logo file names.
+    LOGO_NAME_MAP => {
+        # Recorder software friendly maps.
+        '16' => 'mx',
+        '18' => undef,  # tvk doesn't have a watermark.
+        '21' => 'fuji',
+        '22' => 'tbs',
+        '23' => 'tokyo',
+        '24' => 'asahi',
+        '25' => 'nittere',
+        '26' => 'nhke',
+        '211' => 'bs11',
+        # Human friendly maps.
+        'mx' => 'mx',
+        'tvk' => undef,  # tvk doesn't have a watermark.
+        'fuji' => 'fuji',
+        'tbs' => 'tbs',
+        'tokyo' => 'tokyo',
+        'asahi' => 'asahi',
+        'nittere' => 'nittere',
+        'nhke' => 'nhke',
+        'bs11' => 'bs11',
+        # Other channels (NHK, Chiba, etc) are not supported by default.
+    },
 };
 
 use Cwd;
@@ -91,8 +115,8 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
     if (defined $scene_filename) {
         execute(qq|cp "$scene_filename" "scene_filtered.txt"|);
     } else {
-        if ($options{logo}) {
-            my $logo = $options{logo};
+        my $logo = LOGO_NAME_MAP->{$options{logo} // ''};
+        if (defined $logo) {
             execute(qq|$script_dirname/scene_change_detector.py --logo=$logo|);
             execute(qq|$script_dirname/logo_detector.py --logo=$logo|);
         } else {
