@@ -1,3 +1,3 @@
 How to use:
-./encode.pl -d /PATH/TO/DEST/DIR /PATH/TO/INPUT/FILE1 [...]
+./mecenc.pl -d /PATH/TO/DEST/DIR /PATH/TO/INPUT/FILE1 [...]
 
