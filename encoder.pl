@@ -8,7 +8,8 @@ use Getopt::Long;
 use POSIX;
 
 my %options;
-GetOptions(\%options, qw/no_scale no_decimate interlaced/) or die;
+$options{encoder} = 'x264';
+GetOptions(\%options, qw/no_scale no_decimate interlaced encoder=s/) or die;
 
 my $basename = 'in';
 my $video_filename = 'in.mp4v';
@@ -19,7 +20,7 @@ my $scene_filename = 'scene_filtered.txt';
 die "No such file. [$scene_filename]" unless -f $scene_filename;
 my $output_filename = 'result.mp4';
 die "The output file is already exists. [$output_filename]" if -e $output_filename;
-my $video_result_filename = "result.mp4v";
+my $video_result_filename = ($options{encoder} eq 'x265') ? "result.mp4v" : "result.265";
 die "The vide result file is already exists. [$video_result_filename]" if -e $video_result_filename;
 my $audio_result_filename = "result.mp4a";
 die "The audio_result file is already exists. [$audio_result_filename]" if -e $audio_result_filename;
@@ -54,10 +55,22 @@ my @video_temp_filenames;
 for my $frame (@frame_list) {
     my $start = POSIX::ceil($frame->[0]);
     my $end = POSIX::floor($frame->[1]);
-    my $temp_filename = sprintf("%s%02d.mp4v", $basename, $index);
-    push @video_temp_filenames, $temp_filename;
+    my $temp_filename = '';
+    my $video_option = '';
+    if ($options{encoder} eq 'x265') {
+        $video_option =
+            '-vcodec libx265 -preset medium -f hevc ' .
+            '-x265-params crf=18:colorprim=bt709:transfer=bt709:colormatrix=bt709';
+        $temp_filename = sprintf("%s%02d.265", $basename, $index);
+    } else {
+        $video_option = '-vcodec libx264 -crf 18 -preset slow -tune animation -f mp4 ' .
+            '-x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709 ' .
+            '-deblock 0:0 -qmin 10' ;
+        $temp_filename = sprintf("%s%02d.mp4v", $basename, $index);
+    }
     die "A temp file is already exists. [$temp_filename]" if -e $temp_filename;
-    $video_command .= qq|-an -vcodec libx264 -crf 18 -preset slow -tune animation -deblock 0:0 -qmin 10 -f mp4 |;
+    push @video_temp_filenames, $temp_filename;
+    $video_command .= qq|-an $video_option |;
     my $filter_v = qq|-filter:v trim=start_frame=$start:end_frame=$end|;
     if ($options{interlaced}) {
         $video_command .= qq|-flags +ilme+ildct |;
@@ -86,7 +99,11 @@ for (@video_temp_filenames) {
     print $concat_fh qq|file $name\n| 
 }
 close $concat_fh;
-`ffmpeg -f concat -i "$concat_filename" -c copy -f mp4 "$video_result_filename"`;
+if ($options{encoder} eq 'x265') {
+    `ffmpeg -f concat -i "$concat_filename" -c copy -f hevc "$video_result_filename"`;
+} else {
+    `ffmpeg -f concat -i "$concat_filename" -c copy -f mp4 "$video_result_filename"`;
+}
 
 $index = 1;
 my @audio_commands = ();
@@ -107,7 +124,8 @@ $sox_command .= qq#-t wav - | neroAacEnc -q 0.55 -ignorelength -if - -of "$audio
 `$sox_command`;
 `mp4chaps -r "$audio_result_filename"`;
 
-`ffmpeg -i "$video_result_filename" -i "$audio_result_filename" -c copy -movflags faststart "$output_filename"`;
+my $fps = ($options{interlaced} || $options{no_decimate}) ? '30000/1001' : '24000/1001';
+`muxer --file-format mp4 --optimize-pd -i "$video_result_filename"?fps=$fps -i "$audio_result_filename" -o "$output_filename"`;
 
 exit;
 
@@ -132,10 +150,20 @@ sub getOriginalHeight {
 }
 
 sub dumpDuration {
-    my $a = shift;
-    my $line = `ffmpeg -i "$a" 2>&1 1| grep "Duration: "`;
+    my $filename = shift;
+    my $line = '';
+    if ($filename =~ m/\.265$/) {
+        my $temp_filename = $filename . '.tmp.mp4';
+        `ffmpeg -i "$filename" -c copy -f mp4 -y "$temp_filename"`;
+        $line = `ffmpeg -i "$temp_filename" 2>&1 1| grep "Duration: "`;
+        `rm $temp_filename`;
+    } else {
+        $line = `ffmpeg -i "$filename" 2>&1 1| grep "Duration: "`;
+    }
+
     $line =~ m/Duration: (\d+):(\d+):(\d+)\.(\d+)/;
     my $sec = int($1) * 3600 + int($2) * 60 + int($3) + int($4) / 100;
     ($sec + 0.5) =~ m/^(\d+)/;
+
     return int($1);
 }
