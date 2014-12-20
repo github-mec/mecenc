@@ -48,6 +48,7 @@ for my $value (@candidates) {
     }
 }
 
+@result = filterHeadCmGroup(@result);
 @result = filterLogoDetection(@result);
 @result = filterShortCmGroup(@result);
 @result = filterAggregateBody(@result);
@@ -96,9 +97,9 @@ sub checkDiff {
 
 sub dumpLine {
     my $a = shift;
-    my $min = getLower($a);
-    my $max = getUpper($a);
-    my $exact = getExact($a);
+    my $min = getLowerFrame($a);
+    my $max = getUpperFrame($a);
+    my $exact = getExactFrame($a);
 
     if (defined $exact && $a =~ m/exact/) {
         $exact = POSIX::floor($exact * 10 + 0.1) / 10.0;
@@ -106,6 +107,31 @@ sub dumpLine {
     } else {
         return (0, int($min), int($max));
     }
+}
+
+sub filterHeadCmGroup {
+    my @lines = @_;
+
+    my $last_cm_index = -1;
+    for (my $i = 1; $i <= $#lines; ++$i) {
+        my $line = $lines[$i];
+        if (!isExact($line)) {
+            next;
+        }
+        if (getExactFrame($line) > 5.5 * 30000 / 1001.0) {
+            last;
+        }
+        $last_cm_index = $i - 1;
+    }
+
+    for my $i (0..$last_cm_index) {
+        setType($lines[$i], 'CM');
+    }
+
+    return @lines;
+}
+
+sub filterTailCmGroup {
 }
 
 sub filterLogoDetection {
@@ -124,8 +150,8 @@ sub filterLogoDetection {
     close $fh;
 
     for (my $i = 1; $i <= $#lines; ++$i) {
-        my $start_frame = getUpper($lines[$i - 1]);
-        my $end_frame = getLower($lines[$i]);
+        my $start_frame = getUpperFrame($lines[$i - 1]);
+        my $end_frame = getLowerFrame($lines[$i]);
         my $start = POSIX::ceil(getTimeFromFrameNum($start_frame));
         my $end = POSIX::floor(getTimeFromFrameNum($end_frame));
         my $is_body = 0;
@@ -164,7 +190,8 @@ sub filterShortCmGroup {
         }
         if ($cm_start_index) {
             my $duration = getTimeFromFrameNum(
-                getLower($lines[$i]) - getUpper($lines[$cm_start_index]));
+                getLowerFrame($lines[$i])
+                - getUpperFrame($lines[$cm_start_index]));
             if ($duration < 25) {
                 my $remove_num = $i - $cm_start_index;
                 splice @lines, $cm_start_index, $remove_num;
@@ -190,17 +217,22 @@ sub filterAggregateBody {
     return @lines;
 }
 
-sub getLower {
+sub isExact {
+    my $line = shift;
+    return (split('\s+', $line))[1] eq 'exact';
+}
+
+sub getLowerFrame {
     my $line = shift;
     return (split('\s+', $line))[2];
 }
 
-sub getUpper {
+sub getUpperFrame {
     my $line = shift;
     return (split('\s+', $line))[3];
 }
 
-sub getExact {
+sub getExactFrame {
     my $line = shift;
     return (split('\s+', $line))[4];
 }
