@@ -1,3 +1,5 @@
 *~
 logo/*
 \#*
+silence_detector/silence_detector
+ts_cleaner/ts_cleaner
