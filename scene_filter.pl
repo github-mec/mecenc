@@ -64,32 +64,27 @@ sub checkDiff {
     my ($a, $b) = @_;
     my ($a_is_exact, $a_min, $a_max) = dumpLine($a);
     my ($b_is_exact, $b_min, $b_max) = dumpLine($b);
+    if (!$a_is_exact || !$b_is_exact) {
+        return 0;
+    }
     my $diff_min = $b_min - $a_max;
     my $diff_max = $b_max - $a_min;
 
-    if ($a_is_exact && $b_is_exact) {
-        # temmporary hack for noitamina.
-        if (147.4 <= $diff_min && $diff_min <= 151.6 && $a_min < 3300) {
-            return 1;
-        }
+    my @ranges = (
+        [446.4, 452.6],  # 15 sec
+        [896.4, 901.6],  # 30 sec
+        [1795.6, 1800.7],  # 60 sec
+    );
+    my $is_logo_detection_enabled = -f 'logo.txt';
+    if ($is_logo_detection_enabled) {
+        push @ranges, [146.4, 152.6],  # 5 sec
+        push @ranges, [2694.7, 2699.9],  # 90 sec
+    }
 
-        # min == max
-        if (146.4 <= $diff_min && $diff_min <= 152.6) {
+    for my $range (@ranges) {
+        if ($range->[0] <= $diff_min && $diff_min <= $range->[1]) {
             return 1;
         }
-        if (446.4 <= $diff_min && $diff_min <= 452.6) {
-            return 1;
-        }
-        if (896.4 <= $diff_min && $diff_min <= 901.6) {
-            return 1;
-        }
-        if (1795.6 <= $diff_min && $diff_min <= 1800.7) {
-            return 1;
-        }
-        if (2694.7 <= $diff_min && $diff_min <= 2699.9) {
-            return 1;
-        }
-        return 0;
     }
 
     return 0;
