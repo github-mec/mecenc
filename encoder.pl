@@ -62,7 +62,7 @@ for my $frame (@frame_list) {
     if ($options{encoder} eq 'x265') {
         $video_option =
             '-vcodec libx265 -preset medium -f hevc ' .
-            '-x265-params crf=18:colorprim=bt709:transfer=bt709:colormatrix=bt709';
+            '-x265-params crf=19:colorprim=bt709:transfer=bt709:colormatrix=bt709';
         $temp_filename = sprintf("%s%02d.265", $basename, $index);
     } else {
         $video_option = '-vcodec libx264 -crf 18 -preset slow -tune animation -f mp4 ' .
