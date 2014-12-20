@@ -152,7 +152,7 @@ def Detect(logo_image, target_image, tag=''):
 def Main():
     options = ParseOptions()
     logo_filename = GetLogoFileName(options)
-    input_dirname = 'periodical_dump'
+    input_dirname = 'logo_dump'
 
     if not os.path.isfile(logo_filename):
         logging.error('Logo file is not found or not a file.')

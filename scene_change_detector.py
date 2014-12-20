@@ -87,7 +87,7 @@ def GetDumpDirname(scene_index):
 
 
 def GetPeriodicalDumpDirname():
-    dirname = "periodical_dump"
+    dirname = "logo_dump"
     if not os.path.exists(dirname):
         os.makedirs(dirname)
     return dirname
