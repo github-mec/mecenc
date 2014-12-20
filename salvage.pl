@@ -4,6 +4,8 @@ use strict;
 use warnings;
 use constant {
     TARGET_FILENAMES => [
+        'chapter.txt',
+        'index.html',
         'logo.txt',
         'raw_silence.txt',
         'silence.txt',
@@ -12,10 +14,8 @@ use constant {
         'scene_filtered.txt',
         'scene_filtered.txt.orig',
         'scene_offset.txt',
-        'index.html',
     ],
     TARGET_DIRNAMES => [
-#        'thumbnails',
     ],
 };
 

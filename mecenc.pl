@@ -158,15 +158,6 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
         push @option_list, '-encoder=' . $options{encoder} if $options{encoder};
         my $option = join ' ', @option_list;
         execute(qq|$script_dirname/encoder.pl $option|);
-
-        my @video_part_files = sort(grep {m/in\d+\.mp4v/} `ls`);
-        chomp for @video_part_files;
-        if ($#video_part_files > 0) {
-            my $joined_video_part_files =
-                join(' ', map({sprintf '"%s"', $_} @video_part_files));
-            execute(qq|$script_dirname/chapter_dumper.pl $joined_video_part_files "chapter.txt"|);
-            execute(qq|$script_dirname/chapter_applier.pl "chapter.txt" "result.mp4"|);
-        }
         execute(qq|mv "result.mp4" "$output_filename"|);
     }
     cleanTempDirectory();

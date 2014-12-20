@@ -26,6 +26,8 @@ my $audio_result_filename = "result.mp4a";
 die "The audio_result file is already exists. [$audio_result_filename]" if -e $audio_result_filename;
 my $concat_filename = "concat.txt";
 die "The concat file is already exists. [$concat_filename]" if -e $concat_filename;
+my $chapter_filename = 'chapter.txt';
+die "The chapter file is already exists. [$chapter_filename]" if -e $chapter_filename;
 
 open my $scene_fh, '<', $scene_filename or die "Failed to open scene file. [$scene_filename]";
 my @scene_list = <$scene_fh>;
@@ -110,9 +112,11 @@ my @audio_commands = ();
 my $sox_command = 'sox ';
 my $video_delay = getVideoDelay($video_filename);
 my $audio_delay = 2624.0 / 48000.0;  # 2624 samples delay by neroAacEnc.
+my @durations = ();
 for my $frame (@frame_list) {
     my $start = $frame->[0] * 1001.0 / 30000.0 + $video_delay + $audio_delay;
     my $duration = dumpDuration(shift @video_temp_filenames) - $audio_delay;
+    push @durations, $duration;
     my $temp_filename = sprintf("%s%02d.wav", $basename, $index);
     `ffmpeg -i "$audio_filename" -ss $start -t $duration "$temp_filename"`;
     $sox_command .= qq|"$temp_filename" |;
@@ -120,12 +124,13 @@ for my $frame (@frame_list) {
     $audio_delay = 0;
     $index++;
 }
+writeChapterFile($chapter_filename, \@durations);
+
 $sox_command .= qq#-t wav - | neroAacEnc -q 0.55 -ignorelength -if - -of "$audio_result_filename"#;
 `$sox_command`;
-`mp4chaps -r "$audio_result_filename"`;
 
 my $fps = ($options{interlaced} || $options{no_decimate}) ? '30000/1001' : '24000/1001';
-`muxer --file-format mp4 --optimize-pd -i "$video_result_filename"?fps=$fps -i "$audio_result_filename" -o "$output_filename"`;
+`muxer --file-format mp4 --optimize-pd --chapter "$chapter_filename" -i "$video_result_filename"?fps=$fps -i "$audio_result_filename" -o "$output_filename"`;
 
 exit;
 
@@ -166,4 +171,26 @@ sub dumpDuration {
     ($sec + 0.5) =~ m/^(\d+)/;
 
     return int($1);
+}
+
+sub writeChapterFile {
+    my ($filename, $durations) = @_;
+
+    open my $fh, '>', $filename
+        or die "Failed to open a file. [$filename]";
+    my $total_time = 0;
+    my $index = 0;
+    for my $duration (@$durations) {
+        my $total_sec = int($total_time);
+        my $hour = int($total_sec / 3600);
+        my $sec = $total_sec % 60;
+        my $min = int(($total_sec - $hour * 3600 - $sec) / 60);
+        my $usec = ($total_time - $total_sec) * 1e6;
+        print $fh sprintf("CHAPTER%02d=%02d:%02d:%02d.%06d\n", $index, $hour, $min, $sec, $usec);
+        print $fh sprintf("CHAPTER%02dNAME=\n", $index);
+
+        $total_time += $duration;
+        ++$index;
+    }
+    close $fh;
 }
