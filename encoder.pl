@@ -107,30 +107,34 @@ if ($options{encoder} eq 'x265') {
     `ffmpeg -f concat -i "$concat_filename" -c copy -f mp4 "$video_result_filename"`;
 }
 
+my $fps = 24000.0 / 1001;
+my $fps_str = '24000/1001';
+if ($options{interlaced} || $options{no_decimate}) {
+    $fps = 30000.0 / 1001;
+    $fps_str = '30000/1001';
+}
+
 $index = 1;
 my @audio_commands = ();
 my $sox_command = 'sox ';
 my $video_delay = getVideoDelay($video_filename);
-my $audio_delay = 2624.0 / 48000.0;  # 2624 samples delay by neroAacEnc.
 my @durations = ();
 for my $frame (@frame_list) {
-    my $start = $frame->[0] * 1001.0 / 30000.0 + $video_delay + $audio_delay;
-    my $duration = dumpDuration(shift @video_temp_filenames) - $audio_delay;
+    my $start = $frame->[0] * 1001.0 / 30000.0 + $video_delay;
+    my $duration = dumpDuration(shift(@video_temp_filenames), $fps);
     push @durations, $duration;
     my $temp_filename = sprintf("%s%02d.wav", $basename, $index);
     `ffmpeg -i "$audio_filename" -ss $start -t $duration "$temp_filename"`;
     $sox_command .= qq|"$temp_filename" |;
-    # Audio delay is not required for the other frames.
-    $audio_delay = 0;
     $index++;
 }
 writeChapterFile($chapter_filename, \@durations);
 
-$sox_command .= qq#-t wav - | neroAacEnc -q 0.55 -ignorelength -if - -of "$audio_result_filename"#;
+my $audio_delay = 2624.0 / 48000.0;  # 2624 samples delay by neroAacEnc.
+$sox_command .= qq#-t wav - | ffmpeg -i - -ss $audio_delay -c copy -f wav pipe: | neroAacEnc -q 0.55 -ignorelength -if - -of "$audio_result_filename"#;
 `$sox_command`;
 
-my $fps = ($options{interlaced} || $options{no_decimate}) ? '30000/1001' : '24000/1001';
-`muxer --file-format mp4 --optimize-pd --chapter "$chapter_filename" -i "$video_result_filename"?fps=$fps -i "$audio_result_filename" -o "$output_filename"`;
+`muxer --file-format mp4 --optimize-pd --chapter "$chapter_filename" -i "$video_result_filename"?fps=$fps_str -i "$audio_result_filename" -o "$output_filename"`;
 
 exit;
 
@@ -155,7 +159,7 @@ sub getOriginalHeight {
 }
 
 sub dumpDuration {
-    my $filename = shift;
+    my ($filename, $fps) = @_;
     my $line = '';
     if ($filename =~ m/\.265$/) {
         my $temp_filename = $filename . '.tmp.mp4';
@@ -167,10 +171,11 @@ sub dumpDuration {
     }
 
     $line =~ m/Duration: (\d+):(\d+):(\d+)\.(\d+)/;
-    my $sec = int($1) * 3600 + int($2) * 60 + int($3) + int($4) / 100;
-    ($sec + 0.5) =~ m/^(\d+)/;
+    my $sec = int($1) * 3600 + int($2) * 60 + int($3) + int($4) / 100.0;
+    my $frame_num = $sec * $fps;
+    ($frame_num + 0.5) =~ m/^(\d+)/;
 
-    return int($1);
+    return int($1) / $fps;
 }
 
 sub writeChapterFile {
@@ -181,12 +186,14 @@ sub writeChapterFile {
     my $total_time = 0;
     my $index = 0;
     for my $duration (@$durations) {
-        my $total_sec = int($total_time);
-        my $hour = int($total_sec / 3600);
+        my $total_usec = POSIX::ceil($total_time * 1e6);
+        my $total_sec = POSIX::floor($total_usec / 1e6);
+        my $hour = POSIX::floor($total_sec / 3600);
         my $sec = $total_sec % 60;
-        my $min = int(($total_sec - $hour * 3600 - $sec) / 60);
-        my $usec = ($total_time - $total_sec) * 1e6;
-        print $fh sprintf("CHAPTER%02d=%02d:%02d:%02d.%06d\n", $index, $hour, $min, $sec, $usec);
+        my $min = POSIX::floor(($total_sec - $hour * 3600 - $sec) / 60);
+        my $usec = $total_usec % 1000000;
+        print $fh sprintf("CHAPTER%02d=%02d:%02d:%02d.%06d\n",
+                          $index, $hour, $min, $sec, $usec);
         print $fh sprintf("CHAPTER%02dNAME=\n", $index);
 
         $total_time += $duration;
