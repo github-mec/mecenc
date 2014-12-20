@@ -77,8 +77,8 @@ sub checkDiff {
     );
     my $is_logo_detection_enabled = -f 'logo.txt';
     if ($is_logo_detection_enabled) {
-        push @ranges, [146.4, 152.6],  # 5 sec
-        push @ranges, [2694.7, 2699.9],  # 90 sec
+        push @ranges, [146.4, 152.6];  # 5 sec
+        push @ranges, [2694.7, 2699.9];  # 90 sec
     }
 
     for my $range (@ranges) {
