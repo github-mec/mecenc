@@ -4,7 +4,6 @@ use strict;
 use warnings;
 use constant {
     TARGET_FILENAMES => [
-        'chapter.txt',
         'index.html',
         'logo.txt',
         'raw_silence.txt',
