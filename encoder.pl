@@ -20,7 +20,7 @@ my $scene_filename = 'scene_filtered.txt';
 die "No such file. [$scene_filename]" unless -f $scene_filename;
 my $output_filename = 'result.mp4';
 die "The output file is already exists. [$output_filename]" if -e $output_filename;
-my $video_result_filename = ($options{encoder} eq 'x265') ? "result.mp4v" : "result.265";
+my $video_result_filename = ($options{encoder} eq 'x265') ? "result.265" : "result.mp4v";
 die "The vide result file is already exists. [$video_result_filename]" if -e $video_result_filename;
 my $audio_result_filename = "result.mp4a";
 die "The audio_result file is already exists. [$audio_result_filename]" if -e $audio_result_filename;
@@ -134,7 +134,13 @@ my $audio_delay = 2624.0 / 48000.0;  # 2624 samples delay by neroAacEnc.
 $sox_command .= qq#-t wav - | ffmpeg -i - -ss $audio_delay -c copy -f wav pipe: | neroAacEnc -q 0.55 -ignorelength -if - -of "$audio_result_filename"#;
 `$sox_command`;
 
-`muxer --file-format mp4 --optimize-pd --chapter "$chapter_filename" -i "$video_result_filename"?fps=$fps_str -i "$audio_result_filename" -o "$output_filename"`;
+if ($options{encoder} eq 'x265') {
+    `muxer --file-format mp4 --optimize-pd --chapter "$chapter_filename" -i "$video_result_filename"?fps=$fps_str -i "$audio_result_filename" -o "$output_filename"`;
+} else {
+    # L-SMASH bug? Failed to mux. Use ffmpeg instead.
+    # Commit: 7124bbeccb552021f2e6b31cbd923eeff7322cb5
+    `ffmpeg -i "$video_result_filename" -i "$audio_result_filename" -c copy -movflags faststart "$output_filename"`
+}
 
 exit;
 
