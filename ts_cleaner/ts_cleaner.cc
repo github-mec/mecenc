@@ -10,14 +10,16 @@
 using namespace std;
 
 const size_t TS_PACKET_SIZE = 188;
-const int PAT_PID = 0;
+const int PAT_PID = 0x00;
+const int TOT_PID = 0x14;
 
 class TsPacket {
 public:
   enum PacketType {
     GENERIC,
-    PAT,
-    PMT,
+    PAT,  // Program Association Table
+    PMT,  // Program Map Table
+    TOT,  // Time Offset Table
   };
 
   explicit TsPacket(const char *data) : data_((const unsigned char *)data) {
@@ -83,7 +85,7 @@ public:
   virtual ~TsPatPacket() {};
 
   virtual bool IsGood() const {
-    return TsPacket::IsGood() && GetPid() == 0;
+    return TsPacket::IsGood() && GetPid() == PAT_PID;
   }
 
   virtual string GetBodyDumpString() const {
@@ -237,6 +239,56 @@ private:
   size_t id_length_;
 };
 
+class TsTotPacket : public TsPacket {
+public:
+  explicit TsTotPacket(const char *data)
+    : TsPacket(data) {
+  }
+
+  virtual ~TsTotPacket() {};
+
+  virtual bool IsGood() const {
+    return TsPacket::IsGood() && GetPid() == TOT_PID;
+  }
+
+  virtual string GetBodyDumpString() const {
+    ostringstream ss;
+    if (data_[4] != 0) {
+      ss << "Unknown pointer field... :(" << "\n";
+      return ss.str();
+    }
+    ss << "table ID:\t" << (int)data_[5] << "\n";
+    ss << "selection syntax indicator:\t" << (bool)(data_[6] & 0x80) << "\n";
+    const int section_length = (int)(data_[6] & 0x0F) * 256 + data_[7];
+    ss << "section_length:\t" << section_length << "\n";
+    // data_[8, 9] indicates date, maybe in hex.
+    ss << "time:\t" << setw(2) << setfill('0') << GetHours() << ":"
+                    << setw(2) << setfill('0') << GetMinutes() << ":"
+                    << setw(2) << setfill('0') << GetSeconds();
+
+    return ss.str();
+  }
+
+  int GetHours() const {
+    int value = data_[10];
+    return ((value & 0xF0) >> 4) * 10 + (value & 0x0F);
+  }
+
+  int GetMinutes() const {
+    int value = data_[11];
+    return ((value & 0xF0) >> 4) * 10 + (value & 0x0F);
+  }
+
+  int GetSeconds() const {
+    int value = data_[12];
+    return ((value & 0xF0) >> 4) * 10 + (value & 0x0F);
+  }
+
+  virtual PacketType GetPacketType() const {
+    return TOT;
+  }
+};
+
 class TsIterator {
 public:
   TsIterator(const char *buf, size_t size)
@@ -307,6 +359,8 @@ public:
     if (pid == PAT_PID) {
       current_packet_.reset(new TsPatPacket(ts_data));
       UpdatePmtPids();
+    } else if (pid == TOT_PID) {
+      current_packet_.reset(new TsTotPacket(ts_data));
     } else if (binary_search(pmt_pids_.begin(), pmt_pids_.end(), pid)) {
       current_packet_.reset(new TsPmtPacket(ts_data));
     }
@@ -321,7 +375,8 @@ public:
 
   void UpdatePmtPids() {
     if (current_packet_->GetPid() == 0 && current_packet_->IsGood()) {
-      TsPatPacket *pat_packet = dynamic_cast<TsPatPacket *>(current_packet_.get());
+      TsPatPacket *pat_packet =
+        dynamic_cast<TsPatPacket *>(current_packet_.get());
       if (pat_packet) {
         pat_packet->GetPmtPids(&pmt_pids_);
       }
@@ -379,7 +434,6 @@ int main(int argc, char *argv[]) {
     output_stream = &output_file_stream;
   }
 
-  //  const int kTotalPacketNum = 1000;
   const int kTotalPacketNum = 500 * 1000;
   const size_t file_content_buf_size = TS_PACKET_SIZE * kTotalPacketNum;
   unique_ptr<char []> file_content(new char[file_content_buf_size]);
@@ -395,7 +449,8 @@ int main(int argc, char *argv[]) {
         cerr << "Failed to find PMT packet." << endl;
         return -1;
       }
-      const TsPmtPacket *packet = dynamic_cast<const TsPmtPacket *>(ts_iterator.GetTsPacket());
+      const TsPmtPacket *packet =
+        dynamic_cast<const TsPmtPacket *>(ts_iterator.GetTsPacket());
       movie_element_id = packet->GetFirstMovieId();
     }
   }
@@ -403,8 +458,19 @@ int main(int argc, char *argv[]) {
   {  // Detect first packet and write.
     size_t found_pos = 0;
     TsIterator ts_iterator(file_content.get(), loaded_size);
+
+    // Usually, A TOT packet is in each 5 seconds.
+    // Skip packets before hh:mm:55.
+    const TsTotPacket *tot_packet = nullptr;
+    do {
+      ts_iterator.Next(TsPacket::TOT);
+      tot_packet = dynamic_cast<const TsTotPacket *>(ts_iterator.GetTsPacket());
+    } while (tot_packet->GetSeconds() > 15);  // 5sec is enough, but for safety.
+    ts_iterator.Previous(TsPacket::TOT);
+
     while (ts_iterator.Next(TsPacket::PMT)) {
-      const TsPmtPacket *pmt_packet = dynamic_cast<const TsPmtPacket *>(ts_iterator.GetTsPacket());
+      const TsPmtPacket *pmt_packet =
+        dynamic_cast<const TsPmtPacket *>(ts_iterator.GetTsPacket());
       if (pmt_packet->GetFirstMovieId() == movie_element_id) {
         found_pos = ts_iterator.GetCurrentOffset();
         break;
@@ -416,7 +482,8 @@ int main(int argc, char *argv[]) {
       ts_iterator.Next(TsPacket::PAT);
     }
     const size_t start_offset = ts_iterator.GetCurrentOffset();
-    output_stream->write(file_content.get() + start_offset, loaded_size - start_offset);
+    output_stream->write(
+        file_content.get() + start_offset, loaded_size - start_offset);
   }
 
   // Write a trailing content.
