@@ -221,17 +221,17 @@ int main(int argc, char *argv[]) {
   }
 
   cout << "all 0.000 " << SamplingToTime(max_sampling_count, sampling_rate) << endl;
+  // Margin for body.
+  // Silence ranges in some body have high-level noise.
+  // On the other hand, CM doesn't have.
+  // This margin improves the handling of such kind of body.
+  const size_t margin = sampling_rate * 1001.0 / 30000.0 + 5;
   for (size_t i = 0; i < mute_ranges.size(); ++i) {
     const pair<size_t, size_t> &range = mute_ranges[i];
-    cout << SamplingToTime(range.first, sampling_rate) << " "
-         << SamplingToTime(range.second, sampling_rate) << endl;
-    /*
-    const float width =
-      static_cast<float>((range.second - range.first)) / sampling_rate;
-    cout << SamplingToTime(range.first, sampling_rate) << "\t"
-         << SamplingToTime(range.second, sampling_rate) << "\t("
-         << width << ")" << endl;
-    */
+    const size_t start = (range.first > margin) ? range.first - margin : 0;
+    const size_t end = min(max_sampling_count, range.second + margin);
+    cout << SamplingToTime(start, sampling_rate) << " "
+         << SamplingToTime(end, sampling_rate) << endl;
   }
 
   delete [] file_buf_head;
