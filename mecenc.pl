@@ -33,6 +33,7 @@ use constant {
 
 use Cwd;
 use File::Basename;
+use File::Path;
 use File::Spec;
 use Getopt::Long;
 
@@ -58,6 +59,13 @@ if ($options{help}) {
 our $HAS_LOCK = 0;
 our $CLEAN_DIR = undef;
 getLock() unless $options{no_lock};
+
+for my $option_name (qw/tempdir destdir logdir/) {
+    my $dirname = $options{$option_name};
+    next if -e $dirname;
+    mkpath($dirname, {verbose => 0})
+        or die "Failed to create a directory. [$dirname]";
+}
 
 my $script_dirname = File::Basename::dirname(File::Spec->rel2abs($0));
 $script_dirname =~ s/ /\\ /g;
