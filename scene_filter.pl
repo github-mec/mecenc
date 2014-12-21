@@ -3,6 +3,9 @@
 use strict;
 use warnings;
 use utf8;
+use constant {
+    RECORDER_MAX_HEAD_MARGIN_FRAMES => 6.5 * 30000 / 1001.0,
+};
 
 use List::Util qw/min max/;
 use POSIX;
@@ -20,9 +23,12 @@ close $input_fh;
 
 my @candidates = ();
 my %cm_set = ();
-# First segment may be a body.
 push @candidates, $lines[0];
 LINE: for (my $i = 0; $i <= $#lines - 1; ++$i) {
+    # First segment may be a body.
+    if (getExactFrame($lines[$i]) < RECORDER_MAX_HEAD_MARGIN_FRAMES) {
+        push @candidates, $lines[$i];
+    }
     for (my $j = $i + 1; $j <= $#lines; ++$j) {
         if (checkDiff($lines[$i], $lines[$j])) {
             push @candidates, $lines[$i];
@@ -34,7 +40,6 @@ LINE: for (my $i = 0; $i <= $#lines - 1; ++$i) {
     }
 }
 push @candidates, $lines[$#lines];
-#@candidates = do { my %c; grep {!$c{$_}++} @candidates[1..$#candidates] };  # uniq. remove first dummy line.
 @candidates = do { my %c; grep {!$c{$_}++} @candidates };  # uniq
 
 my @result = ();
@@ -113,7 +118,7 @@ sub filterHeadCmGroup {
         if (!isExact($line)) {
             next;
         }
-        if (getExactFrame($line) > 5.5 * 30000 / 1001.0) {
+        if (getExactFrame($line) > RECORDER_MAX_HEAD_MARGIN_FRAMES) {
             last;
         }
         $last_cm_index = $i - 1;
