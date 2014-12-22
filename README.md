@@ -43,3 +43,16 @@
 ## Don't lock other mecenc
     ./mecenc.pl --no_lock input_file.ts
 * Without this option, mecenc creates /tmp/encode\_movie.lock to lock other process.
+
+# Dependencies
+* g++
+* python-opencv
+* python-numpy
+* libstdc++6:i386  # for NeroAacEnc(32bit) on 64bit Linux.
+* ImageMagick
+* sox
+* x264
+* x265 (optional)
+* neroAacEnc
+* ffmpeg (libx264, libx265 and libpng support is required)
+* TBD...
