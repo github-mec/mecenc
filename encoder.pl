@@ -20,7 +20,7 @@ my $scene_filename = 'scene_filtered.txt';
 die "No such file. [$scene_filename]" unless -f $scene_filename;
 my $output_filename = 'result.mp4';
 die "The output file is already exists. [$output_filename]" if -e $output_filename;
-my $video_result_filename = ($options{encoder} eq 'x265') ? "result.265" : "result.mp4v";
+my $video_result_filename = useX265(\%options) ? "result.265" : "result.mp4v";
 die "The vide result file is already exists. [$video_result_filename]" if -e $video_result_filename;
 my $audio_result_filename = "result.mp4a";
 die "The audio_result file is already exists. [$audio_result_filename]" if -e $audio_result_filename;
@@ -51,6 +51,7 @@ my @frame_list = ();
     }
 }
 
+my $pix_fmt_option = getPixFmtOption(\%options);
 my $video_command = qq|ffmpeg -i "$video_filename" |;
 my $index = 1;
 my @video_temp_filenames;
@@ -59,15 +60,15 @@ for my $frame (@frame_list) {
     my $end = POSIX::floor($frame->[1]);
     my $temp_filename = '';
     my $video_option = '';
-    if ($options{encoder} eq 'x265') {
+    if (useX265(\%options)) {
         $video_option =
-            '-vcodec libx265 -preset medium -f hevc ' .
+            '-vcodec libx265 -preset medium -f hevc $pix_fmt_option ' .
             '-x265-params crf=19:colorprim=bt709:transfer=bt709:colormatrix=bt709';
         $temp_filename = sprintf("%s%02d.265", $basename, $index);
     } else {
-        $video_option = '-vcodec libx264 -crf 18 -preset slow -tune animation -f mp4 ' .
-            '-x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709 ' .
-            '-deblock 0:0 -qmin 10' ;
+        $video_option = '-vcodec libx264 -crf 18 -preset slow -tune animation ' .
+            '-f mp4 $pix_fmt_option -deblock 0:0 -qmin 10 ' .
+            '-x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709';
         $temp_filename = sprintf("%s%02d.mp4v", $basename, $index);
     }
     die "A temp file is already exists. [$temp_filename]" if -e $temp_filename;
@@ -101,7 +102,7 @@ for (@video_temp_filenames) {
     print $concat_fh qq|file $name\n| 
 }
 close $concat_fh;
-if ($options{encoder} eq 'x265') {
+if (useX265(\%options)) {
     `ffmpeg -f concat -i "$concat_filename" -c copy -f hevc "$video_result_filename"`;
 } else {
     `ffmpeg -f concat -i "$concat_filename" -c copy -f mp4 "$video_result_filename"`;
@@ -134,7 +135,7 @@ my $audio_delay = 2624.0 / 48000.0;  # 2624 samples delay by neroAacEnc.
 $sox_command .= qq#-t wav - | ffmpeg -i - -ss $audio_delay -c copy -f wav pipe: | neroAacEnc -q 0.55 -ignorelength -if - -of "$audio_result_filename"#;
 `$sox_command`;
 
-if ($options{encoder} eq 'x265') {
+if (useX265(\%options)) {
     `muxer --file-format mp4 --optimize-pd --chapter "$chapter_filename" -i "$video_result_filename"?fps=$fps_str -i "$audio_result_filename" -o "$output_filename"`;
 } else {
     # L-SMASH bug? Failed to mux. Use ffmpeg instead.
@@ -206,4 +207,25 @@ sub writeChapterFile {
         ++$index;
     }
     close $fh;
+}
+
+sub getPixFmtOption {
+    my $options = shift;
+    my @lines = ();
+    if (useX265($options)) {
+        @lines = `x265 --help 2>&1 1| grep 16bpp`;
+    } else {
+        @lines = `x264 --help 2>&1 1| grep "Output bit depth: 10"`;
+    }
+    if (@lines) {
+        return '-pix_fmt yuv420p10le';
+    } else {
+        return '';
+    }
+}
+
+sub useX265 {
+    my $options = shift;
+    my $encoder = $options->{encoder} // '';
+    return $encoder eq 'x265';
 }
