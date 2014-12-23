@@ -43,7 +43,8 @@ GetOptions(\%options, qw/
     tempdir=s destdir=s logdir=s scenefile=s scenelistfile=s logo=s encoder=s/)
     or die help();
 if ($options{help}) {
-    die help();
+    help();
+    exit(0);
 }
 
 our $HAS_LOCK = 0;
@@ -57,7 +58,9 @@ for my $option_name (qw/tempdir destdir logdir/) {
         or die "Failed to create a directory. [$dirname]";
 }
 
-my $script_dirname = File::Basename::dirname(File::Spec->rel2abs($0));
+my $script_path = File::Spec->rel2abs($0);
+$script_path = readlink($script_path) while -l $script_path;
+my $script_dirname = File::Basename::dirname($script_path);
 $script_dirname =~ s/ /\\ /g;
 
 my $temp_dirname = File::Spec->rel2abs($options{tempdir});
