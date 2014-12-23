@@ -54,6 +54,7 @@ for my $value (@candidates) {
 }
 
 @result = filterHeadCmGroup(@result);
+@result = filterTailCmGroup(@result);
 @result = filterLogoDetection(@result);
 @result = filterShortCmGroup(@result);
 @result = filterAggregateBody(@result);
@@ -131,7 +132,46 @@ sub filterHeadCmGroup {
     return @lines;
 }
 
+# TODO: Employ more robust way.
 sub filterTailCmGroup {
+    my @lines = @_;
+
+    my $last_line = $lines[-1];
+    if (getType($last_line) ne 'CM' or $#lines < 1) {
+        # Unexpected situation.
+        return @lines;
+    }
+    my $last_exact_frame = getExactFrame($last_line);
+    if (getTimeFromFrameNum($last_exact_frame) < 7.5 * 60) {
+        # Don't handle short movie.
+        return @lines;
+    }
+    if (getType($lines[-2]) eq 'CM') {
+        # There is no pieces of CM.
+        return @lines;
+    }
+
+    my $body_index = $#lines - 1;
+    for (my $body_index = $#lines; $body_index >= 0; --$body_index) {
+        my $line = $lines[$body_index];
+        if (getType($line) eq 'CM') {
+            ++$body_index;
+            last;
+        }
+    }
+
+    my $body_duration = getTimeFromFrameNum(
+        $last_exact_frame - getExactFrame($lines[$body_index]));
+    # Handle 90sec or shorter CM.
+    if ($body_duration > 91) {
+        return @lines;
+    }
+
+    for my $line (@lines[$body_index .. $#lines - 1]) {
+        setType($line, 'CM');
+    }
+
+    return @lines;
 }
 
 sub filterLogoDetection {
