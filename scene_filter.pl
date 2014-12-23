@@ -29,14 +29,29 @@ LINE: for (my $i = 0; $i <= $#lines - 1; ++$i) {
     if (getExactFrame($lines[$i]) < RECORDER_MAX_HEAD_MARGIN_FRAMES) {
         push @candidates, $lines[$i];
     }
+    my $end_index = undef;
     for (my $j = $i + 1; $j <= $#lines; ++$j) {
         if (checkDiff($lines[$i], $lines[$j])) {
-            push @candidates, $lines[$i];
-            push @candidates, $lines[$j];
-            $cm_set{$lines[$i]} = 1;
-            $i = $j - 1;
-            next LINE;
+            $end_index = $j;
+            # Hack to handle following case.
+            # 1. BODY
+            # 2. 5 sec CM
+            # 3. 10 sec CM (not supported at this time)
+            # 4. CM
+            # Currently, 10 sec CM is not handled for safety.
+            # TODO: Remove this hack and enable 10 sec CM handling.
+            my $duration = getTimeFromFrameNum(
+                getExactFrame($lines[$j]) - getExactFrame($lines[$i]));
+            if ($duration > 13) {
+                last;
+            }
         }
+    }
+    if (defined $end_index) {
+        push @candidates, $lines[$i];
+        push @candidates, $lines[$end_index];
+        $cm_set{$lines[$i]} = 1;
+        $i = $end_index - 1
     }
 }
 push @candidates, $lines[$#lines];
