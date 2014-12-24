@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use utf8;
 use constant {
-    RECORDER_MAX_HEAD_MARGIN_FRAMES => 6.5 * 30000 / 1001.0,
+    RECORDER_MAX_HEAD_MARGIN_FRAMES => 6.7 * 30000 / 1001.0,
 };
 
 use List::Util qw/min max/;
@@ -21,37 +21,27 @@ my @lines;
 push @lines, <$input_fh>;
 close $input_fh;
 
+my $logo_data = loadLogoData();
 my @candidates = ();
 my %cm_set = ();
 push @candidates, $lines[0];
 LINE: for (my $i = 0; $i <= $#lines - 1; ++$i) {
-    # First segment may be a body.
+    # CM of the previous program may exist.
     if (getExactFrame($lines[$i]) < RECORDER_MAX_HEAD_MARGIN_FRAMES) {
         push @candidates, $lines[$i];
     }
-    my $end_index = undef;
     for (my $j = $i + 1; $j <= $#lines; ++$j) {
-        if (checkDiff($lines[$i], $lines[$j])) {
-            $end_index = $j;
-            # Hack to handle following case.
-            # 1. BODY
-            # 2. 5 sec CM
-            # 3. 10 sec CM (not supported at this time)
-            # 4. CM
-            # Currently, 10 sec CM is not handled for safety.
-            # TODO: Remove this hack and enable 10 sec CM handling.
-            my $duration = getTimeFromFrameNum(
-                getExactFrame($lines[$j]) - getExactFrame($lines[$i]));
-            if ($duration > 13) {
-                last;
-            }
+        if (hasLogoInRange($j - 1, $logo_data, @lines)) {
+            $i = $j - 1;
+            next LINE;
         }
-    }
-    if (defined $end_index) {
-        push @candidates, $lines[$i];
-        push @candidates, $lines[$end_index];
-        $cm_set{$lines[$i]} = 1;
-        $i = $end_index - 1
+        if (checkDiff($lines[$i], $lines[$j])) {
+            push @candidates, $lines[$i];
+            push @candidates, $lines[$j];
+            $cm_set{$lines[$i]} = 1;
+            $i = $j - 1;
+            next LINE;
+        }
     }
 }
 push @candidates, $lines[$#lines];
@@ -70,7 +60,6 @@ for my $value (@candidates) {
 
 @result = filterHeadCmGroup(@result);
 @result = filterTailCmGroup(@result);
-@result = filterLogoDetection(@result);
 @result = filterShortCmGroup(@result);
 @result = filterAggregateBody(@result);
 
@@ -99,6 +88,7 @@ sub checkDiff {
     my $is_logo_detection_enabled = -f 'logo.txt';
     if ($is_logo_detection_enabled) {
         push @ranges, [146.4, 152.6];  # 5 sec
+        push @ranges, [296.2, 302.6];  # 10 sec
         push @ranges, [2694.7, 2699.9];  # 90 sec
     }
 
@@ -189,38 +179,21 @@ sub filterTailCmGroup {
     return @lines;
 }
 
-sub filterLogoDetection {
-    my @lines = @_;
-    my $filename = 'logo.txt';
-    if (!-e $filename) {
-        return @lines;
+sub hasLogoInRange {
+    my ($index, $logo_data, @lines) = @_;
+    if ($index + 1 > $#lines) {
+        return 0;
     }
 
-    open my $fh, '<', $filename or die 'Failed to open $filename.';
-    my @logo_data = ();
-    for my $data (<$fh>) {
-        my $has_logo = (split ' ', $data)[1];
-        push @logo_data, ($has_logo eq 'True');
-    }
-    close $fh;
-
-    for (my $i = 1; $i <= $#lines; ++$i) {
-        my $start_frame = getUpperFrame($lines[$i - 1]);
-        my $end_frame = getLowerFrame($lines[$i]);
-        my $start = POSIX::ceil(getTimeFromFrameNum($start_frame));
-        my $end = POSIX::floor(getTimeFromFrameNum($end_frame));
-        my $is_body = 0;
-        for (my $j = $start; $j <= $end; ++$j) {
-            if ($logo_data[$j]) {
-                $is_body = 1;
-                last;
-            }
-        }
-        if ($is_body) {
-            setType($lines[$i - 1], 'BODY');
+    my $start_frame = getUpperFrame($lines[$index]);
+    my $end_frame = getLowerFrame($lines[$index + 1]);
+    my $start = POSIX::ceil(getTimeFromFrameNum($start_frame));
+    my $end = POSIX::floor(getTimeFromFrameNum($end_frame));
+    for (my $i = $start; $i <= $end; ++$i) {
+        if ($logo_data->[$i]) {
+            return 1;
         }
     }
-    return @lines;
 }
 
 sub filterShortCmGroup {
@@ -307,4 +280,19 @@ sub setType {
 sub getTimeFromFrameNum {
     my $frame_num = shift;
     return $frame_num * 1001 / 30000.0;
+}
+
+sub loadLogoData {
+    my $filename = 'logo.txt';
+    if (!-e $filename) {
+        return undef;
+    }
+    open my $fh, '<', $filename or die 'Failed to open $filename.';
+    my @logo_data = ();
+    for my $data (<$fh>) {
+        my $has_logo = (split ' ', $data)[1];
+        push @logo_data, ($has_logo eq 'True');
+    }
+    close $fh;
+    return \@logo_data;
 }
