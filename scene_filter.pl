@@ -26,7 +26,6 @@ my @candidates = ();
 my %cm_set = ();
 push @candidates, $lines[0];
 LINE: for (my $i = 0; $i < $#lines - 1; ++$i) {
-    print "=> $i\n";
     # CM of the previous program may exist.
     if (getExactFrame($lines[$i + 1]) < RECORDER_MAX_HEAD_MARGIN_FRAMES) {
         push @candidates, $lines[$i];
