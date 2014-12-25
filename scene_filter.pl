@@ -25,16 +25,18 @@ my $logo_data = loadLogoData();
 my @candidates = ();
 my %cm_set = ();
 push @candidates, $lines[0];
-LINE: for (my $i = 0; $i <= $#lines - 1; ++$i) {
+LINE: for (my $i = 0; $i < $#lines - 1; ++$i) {
+    print "=> $i\n";
     # CM of the previous program may exist.
-    if (getExactFrame($lines[$i]) < RECORDER_MAX_HEAD_MARGIN_FRAMES) {
+    if (getExactFrame($lines[$i + 1]) < RECORDER_MAX_HEAD_MARGIN_FRAMES) {
         push @candidates, $lines[$i];
+        $cm_set{$lines[$i]} = 1;
+        next LINE;
+    }
+    if (hasLogoInRange($i, $logo_data, @lines)) {
+        next LINE;
     }
     for (my $j = $i + 1; $j <= $#lines; ++$j) {
-        if (hasLogoInRange($j - 1, $logo_data, @lines)) {
-            $i = $j - 1;
-            next LINE;
-        }
         if (checkDiff($lines[$i], $lines[$j])) {
             push @candidates, $lines[$i];
             push @candidates, $lines[$j];
@@ -58,7 +60,6 @@ for my $value (@candidates) {
     }
 }
 
-@result = filterHeadCmGroup(@result);
 @result = filterTailCmGroup(@result);
 @result = filterShortCmGroup(@result);
 @result = filterAggregateBody(@result);
@@ -113,28 +114,6 @@ sub dumpLine {
     } else {
         return (0, int($min), int($max));
     }
-}
-
-sub filterHeadCmGroup {
-    my @lines = @_;
-
-    my $last_cm_index = -1;
-    for (my $i = 1; $i <= $#lines; ++$i) {
-        my $line = $lines[$i];
-        if (!isExact($line)) {
-            next;
-        }
-        if (getExactFrame($line) > RECORDER_MAX_HEAD_MARGIN_FRAMES) {
-            last;
-        }
-        $last_cm_index = $i - 1;
-    }
-
-    for my $i (0..$last_cm_index) {
-        setType($lines[$i], 'CM');
-    }
-
-    return @lines;
 }
 
 # TODO: Employ more robust way.
