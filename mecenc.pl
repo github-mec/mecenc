@@ -9,7 +9,7 @@ use constant {
     LOGO_NAME_MAP => {
         # Recorder software friendly maps.
         '16' => 'mx',
-        '18' => undef,  # tvk doesn't have a watermark.
+        '18' => '',  # tvk doesn't have a watermark.
         '21' => 'fuji',
         '22' => 'tbs',
         '23' => 'tokyo',
@@ -124,7 +124,7 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
         execute(qq|cp "$scene_filename" "scene_filtered.txt"|);
     } else {
         my $logo = LOGO_NAME_MAP->{$options{logo} // ''} // $options{logo};
-        if (defined $logo) {
+        if ($logo) {
             execute(qq|$script_dirname/scene_change_detector.py --logo=$logo|);
             execute(qq|$script_dirname/logo_detector.py --logo=$logo|);
         } else {
