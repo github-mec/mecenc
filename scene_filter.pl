@@ -33,10 +33,10 @@ LINE: for (my $i = 0; $i < $#lines - 1; ++$i) {
         $cm_set{$lines[$i]} = 1;
         next LINE;
     }
-    if (hasLogoInRange($i, $logo_data, @lines)) {
-        next LINE;
-    }
     for (my $j = $i + 1; $j <= $#lines; ++$j) {
+        if (hasLogoInRange($j - 1, $logo_data, @lines)) {
+            next LINE;
+        }
         if (checkDiff($lines[$i], $lines[$j])) {
             push @candidates, $lines[$i];
             push @candidates, $lines[$j];
