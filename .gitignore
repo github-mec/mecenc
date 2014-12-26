@@ -1,5 +1,5 @@
 *~
-logo/*
+logo/*.png
 \#*
 scripts/silence_detector/silence_detector
 scripts/ts_cleaner/ts_cleaner

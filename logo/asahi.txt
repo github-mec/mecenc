@@ -1,0 +1,4 @@
+offset_x: 1284
+offset_y: 52
+width: 84
+height: 64
