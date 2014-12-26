@@ -36,7 +36,8 @@ int ReadNumber(char **buf, size_t size) {
     break;
   case 3:
     mask = ((*buf)[2] & 0x80) ? 0xFF000000 : 0x0;
-    result = static_cast<int>((*reinterpret_cast<unsigned int *>(*buf) & 0x00FFFFFF) | mask);
+    result = static_cast<int>(
+        (*reinterpret_cast<unsigned int *>(*buf) & 0x00FFFFFF) | mask);
     break;
   case 4:
     result = *reinterpret_cast<int *>(*buf);
@@ -87,7 +88,8 @@ int main(int argc, char *argv[]) {
   const size_t file_size = static_cast<size_t>(ifs.tellg());
   ifs.seekg(0, std::ios::beg);
 
-  char *file_buf_head = new char[file_size + 1];  // + 1 is for 24bit PCM (ReadNumber)
+  // + 1 is for 24bit PCM (ReadNumber)
+  char *file_buf_head = new char[file_size + 1];
   char *file_buf_ptr = file_buf_head;
   if (!ifs.read(file_buf_head, file_size)) {
     cerr << "Failed to read the file." << endl;
@@ -164,11 +166,13 @@ int main(int argc, char *argv[]) {
     const int left_sound = ReadNumber(&file_buf_ptr, sampling_bytes);
     const int right_sound = ReadNumber(&file_buf_ptr, sampling_bytes);
 
-    if (abs(left_sound) <= kVolumeThreshold && abs(right_sound) <= kVolumeThreshold) { 
+    if (abs(left_sound) <= kVolumeThreshold &&
+        abs(right_sound) <= kVolumeThreshold) {
       ++mute_counter;
       if (mute_counter == minimum_mute_chunk_threshold) {
-        mute_ranges.push_back(make_pair(sampling_counter - minimum_mute_chunk_threshold + 1,
-                                        max_sampling_count));
+        mute_ranges.push_back(
+            make_pair(sampling_counter - minimum_mute_chunk_threshold + 1,
+                      max_sampling_count));
       }
     } else {
       if (mute_counter >= minimum_mute_chunk_threshold) {
@@ -194,7 +198,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  cout << "all 0.000 " << SamplingToTime(max_sampling_count, sampling_rate) << endl;
+  cout << "all 0.000 "
+       << SamplingToTime(max_sampling_count, sampling_rate)
+       << endl;
   // Margin for body.
   // Silence ranges in some body have high-level noise.
   // On the other hand, CM doesn't have.

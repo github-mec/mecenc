@@ -5,22 +5,22 @@ use warnings;
 use utf8;
 use POSIX qw/:math_h/;
 
-die "Scene file doesn't exist." unless -f 'scene.txt';
-die "Filtered scene file doesn't exist." unless -f 'scene_filtered.txt';
-die "dump dir doesn't exist." unless -d 'dump';
-die "Index file already exists." if -e 'index.html';
+die "raw_scene.txt doesn't exist." unless -f 'raw_scene.txt';
+die "scene.txt doesn't exist." unless -f 'scene.txt';
+die "dump/ directory doesn't exist." unless -d 'dump';
+die "index.html already exists." if -e 'index.html';
+
+open my $raw_scene_fh, '<', 'raw_scene.txt' or die;
+my @all_sccenes = <$raw_scene_fh>;
+close $raw_scene_fh;
 
 open my $scene_fh, '<', 'scene.txt' or die;
-my @all_sccenes = <$scene_fh>;
-close $scene_fh;
-
-open my $scene_filtered_fh, '<', 'scene_filtered.txt' or die;
 my %scene_type_hash;
-for my $line (<$scene_filtered_fh>) {
+for my $line (<$scene_fh>) {
     my ($index, $type) = (split '\s+', $line)[0, 5];
     $scene_type_hash{$index} = lc $type;
 }
-close $scene_filtered_fh;
+close $scene_fh;
 
 opendir my $dh, 'dump' or die;
 my @dirnames = sort grep(!/^\./, readdir($dh));
@@ -53,7 +53,8 @@ for my $i (0..$#dirnames) {
         frameToTime($changed));
 
     push @output, '<div>';
-    my $template = '<img width="224px" height="126px" class="%s" src="dump/%s/%d.jpg">';
+    my $template =
+        '<img width="224px" height="126px" class="%s" src="dump/%s/%d.jpg">';
     push @output, 
         sprintf($template, $previous_type, $dirname, 1) .
         sprintf($template, $previous_type, $dirname, 2) .
@@ -82,7 +83,10 @@ sub frameToTime {
         $time -= $hour * 3600;
         $sec -= $hour * 3600;
     }
-    $result .= sprintf('%02d:%02d.%02d', floor($sec / 60), $sec % 60, floor(($time - $sec) * 100));
+    $result .= sprintf(
+        '%02d:%02d.%02d',
+        floor($sec / 60), $sec % 60, floor(($time - $sec) * 100));
+
     return $result;
 }
 

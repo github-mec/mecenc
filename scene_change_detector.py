@@ -419,7 +419,7 @@ def LoadSilenceFrameList(options, silence_filename, audio_delay):
 def Main():
     movie_filename = 'in.mp4v'
     silence_filename = 'silence.txt'
-    output_filename = 'scene.txt'
+    output_filename = 'raw_scene.txt'
 
     if not os.path.isfile(silence_filename):
         logging.error('%s is not found.', silence_filename)

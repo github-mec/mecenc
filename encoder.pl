@@ -8,28 +8,39 @@ use Getopt::Long;
 use POSIX;
 
 my %options;
-$options{encoder} = 'x264';
-GetOptions(\%options, qw/no_scale no_decimate interlaced encoder=s/) or die;
+GetOptions(\%options, qw/no_scale keep_fps interlaced x265/) or die;
 
 my $basename = 'in';
 my $video_filename = 'in.mp4v';
 die "No such file. [$video_filename]" unless -f $video_filename;
 my $audio_filename = 'in.wav';
 die "No such file. [$audio_filename]" unless -f $audio_filename;
-my $scene_filename = 'scene_filtered.txt';
+my $scene_filename = 'scene.txt';
 die "No such file. [$scene_filename]" unless -f $scene_filename;
 my $output_filename = 'result.mp4';
-die "The output file is already exists. [$output_filename]" if -e $output_filename;
-my $video_result_filename = useX265(\%options) ? "result.265" : "result.mp4v";
-die "The vide result file is already exists. [$video_result_filename]" if -e $video_result_filename;
+die "The output file is already exists. [$output_filename]"
+    if -e $output_filename;
+my $video_result_filename = $options{x265} ? "result.265" : "result.mp4v";
+die "The vide result file is already exists. [$video_result_filename]"
+    if -e $video_result_filename;
 my $audio_result_filename = "result.mp4a";
-die "The audio_result file is already exists. [$audio_result_filename]" if -e $audio_result_filename;
+die "The audio_result file is already exists. [$audio_result_filename]"
+    if -e $audio_result_filename;
 my $concat_filename = "concat.txt";
-die "The concat file is already exists. [$concat_filename]" if -e $concat_filename;
+die "The concat file is already exists. [$concat_filename]"
+    if -e $concat_filename;
 my $chapter_filename = 'chapter.txt';
-die "The chapter file is already exists. [$chapter_filename]" if -e $chapter_filename;
+die "The chapter file is already exists. [$chapter_filename]"
+    if -e $chapter_filename;
+if ($options{interlaced}) {
+    die "Cannot use --keep_fps and --interlaced options at the same time."
+        if $options{keep_fps};
+    die "Cannot use --no_scale and --interlaced options at the same time."
+        if $options{no_scale};
+}
 
-open my $scene_fh, '<', $scene_filename or die "Failed to open scene file. [$scene_filename]";
+open my $scene_fh, '<', $scene_filename
+    or die "Failed to open scene file. [$scene_filename]";
 my @scene_list = <$scene_fh>;
 close $scene_fh;
 
@@ -60,15 +71,17 @@ for my $frame (@frame_list) {
     my $end = POSIX::floor($frame->[1]);
     my $temp_filename = '';
     my $video_option = '';
-    if (useX265(\%options)) {
+    if ($options{x265}) {
         $video_option =
             '-vcodec libx265 -preset medium -f hevc $pix_fmt_option ' .
-            '-x265-params crf=19:colorprim=bt709:transfer=bt709:colormatrix=bt709';
+            '-x265-params ' .
+                'crf=19:colorprim=bt709:transfer=bt709:colormatrix=bt709 ';
         $temp_filename = sprintf("%s%02d.265", $basename, $index);
     } else {
-        $video_option = '-vcodec libx264 -crf 18 -preset slow -tune animation ' .
+        $video_option =
+            '-vcodec libx264 -crf 18 -preset slow -tune animation ' .
             '-f mp4 $pix_fmt_option -deblock 0:0 -qmin 10 ' .
-            '-x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709';
+            '-x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709 ';
         $temp_filename = sprintf("%s%02d.mp4v", $basename, $index);
     }
     die "A temp file is already exists. [$temp_filename]" if -e $temp_filename;
@@ -77,40 +90,46 @@ for my $frame (@frame_list) {
     my $filter_v = qq|-filter:v trim=start_frame=$start:end_frame=$end|;
     if ($options{interlaced}) {
         $video_command .= qq|-flags +ilme+ildct |;
-    } elsif ($options{no_decimate}){
+    } elsif ($options{keep_fps}) {
         $filter_v .= ',yadif';
     } else {
         my $original_height = getOriginalHeight();
         my $y0 = POSIX::floor($original_height / 4.0);
         my $y1 = POSIX::ceil($original_height * 3.0 / 4.0);
-        $filter_v .= qq|,fieldmatch=combmatch=none:y0=$y0:y1=$y1,decimate=scthresh=100,yadif|
+        $filter_v .=
+            ",fieldmatch=combmatch=none:y0=$y0:y1=$y1" .
+            ",decimate=scthresh=100,yadif"
     }
     if (!$options{no_scale}) {
         $filter_v .= qq|,scale=width=1280:height=720|;
         $video_command .= qq|-sws_flags lanczos+accurate_rnd |;
     }
-    $filter_v .= qq|,setpts=PTS-STARTPTS |;
-    $video_command .= qq| $filter_v "$temp_filename" |;
+    $filter_v .= qq|,setpts=PTS-STARTPTS|;
+    $video_command .= qq|$filter_v "$temp_filename" |;
     $index++;
 }
 `$video_command`;
 
-open my $concat_fh, '>', $concat_filename or die "Failed to open concat file. [$concat_filename]";
+open my $concat_fh, '>', $concat_filename
+    or die "Failed to open concat file. [$concat_filename]";
 for (@video_temp_filenames) {
     my $name = $_;
     $name =~ s/ /\\ /g;
     print $concat_fh qq|file $name\n| 
 }
 close $concat_fh;
-if (useX265(\%options)) {
-    `ffmpeg -f concat -i "$concat_filename" -c copy -f hevc "$video_result_filename"`;
+
+my $concat_command = qq|ffmpeg -f concat -i "$concat_filename" -c copy |;
+if ($options{x265}) {
+    $concat_command .= qq|-f hevc "$video_result_filename" |;
 } else {
-    `ffmpeg -f concat -i "$concat_filename" -c copy -f mp4 "$video_result_filename"`;
+    $concat_command .= qq|-f mp4 "$video_result_filename" |
 }
+`$concat_command`;
 
 my $fps = 24000.0 / 1001;
 my $fps_str = '24000/1001';
-if ($options{interlaced} || $options{no_decimate}) {
+if ($options{interlaced} || $options{keep_fps}) {
     $fps = 30000.0 / 1001;
     $fps_str = '30000/1001';
 }
@@ -132,15 +151,26 @@ for my $frame (@frame_list) {
 writeChapterFile($chapter_filename, \@durations);
 
 my $audio_delay = 2624.0 / 48000.0;  # 2624 samples delay by neroAacEnc.
-$sox_command .= qq#-t wav - | ffmpeg -i - -ss $audio_delay -c copy -f wav pipe: | neroAacEnc -q 0.55 -ignorelength -if - -of "$audio_result_filename"#;
+$sox_command .=
+    qq#-t wav - | ffmpeg -i - -ss $audio_delay -c copy -f wav pipe: # .
+    qq#|neroAacEnc -q 0.55 -ignorelength -if - -of "$audio_result_filename" #;
 `$sox_command`;
 
-if (useX265(\%options)) {
-    `muxer --file-format mp4 --optimize-pd --chapter "$chapter_filename" -i "$video_result_filename"?fps=$fps_str -i "$audio_result_filename" -o "$output_filename"`;
+if ($options{x265}) {
+    my $muxer_command =
+        qq|muxer --file-format mp4 --optimize-pd | .
+        qq|--chapter "$chapter_filename" | .
+        qq|-i "$video_result_filename"?fps=$fps_str | .
+        qq|-i "$audio_result_filename" | .
+        qq|-o "$output_filename" |;
+    `$muxer_command`;
 } else {
     # L-SMASH bug? Failed to mux. Use ffmpeg instead.
     # Commit: 7124bbeccb552021f2e6b31cbd923eeff7322cb5
-    `ffmpeg -i "$video_result_filename" -i "$audio_result_filename" -c copy -movflags faststart "$output_filename"`
+    my $muxer_command =
+        qq|ffmpeg -i "$video_result_filename" -i "$audio_result_filename" | .
+        qq|-c copy -movflags faststart "$output_filename" |;
+    `$muxer_command`;
 }
 
 exit;
@@ -212,7 +242,7 @@ sub writeChapterFile {
 sub getPixFmtOption {
     my $options = shift;
     my @lines = ();
-    if (useX265($options)) {
+    if ($options{x265}) {
         @lines = `x265 --help 2>&1 1| grep 16bpp`;
     } else {
         @lines = `x264 --help 2>&1 1| grep "Output bit depth: 10"`;
@@ -222,10 +252,4 @@ sub getPixFmtOption {
     } else {
         return '';
     }
-}
-
-sub useX265 {
-    my $options = shift;
-    my $encoder = $options->{encoder} // '';
-    return $encoder eq 'x265';
 }

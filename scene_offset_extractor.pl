@@ -8,7 +8,7 @@ use List::Util;
 
 # TODO: Use information about CM length. (5, 15, 30, 60 or 90 sec)
 
-open my $ifh, '<', 'scene_filtered.txt' or die "Failed to open scene_filtered.txt.";
+open my $ifh, '<', 'scene.txt' or die "Failed to open scene.txt.";
 my @lines = <$ifh>;
 close $ifh;
 
@@ -26,7 +26,8 @@ for my $line (@lines) {
 }
 
 my ($start, $duration) = DetectSceneChangeRange(@values);
-open my $ofh, '>', 'scene_offset.txt' or die "ailed to create scene_offset.txt.";
+open my $ofh, '>', 'scene_offset.txt'
+    or die "ailed to create scene_offset.txt.";
 print $ofh sprintf("%.3f %.3f", $start, $duration);
 close $ofh;
 

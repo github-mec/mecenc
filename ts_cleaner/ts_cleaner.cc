@@ -21,7 +21,6 @@ public:
     PMT,  // Program Map Table
     TOT,  // Time Offset Table
   };
-
   explicit TsPacket(const char *data) : data_((const unsigned char *)data) {
     is_good_ = (data_[0] == 4*16+7);
   };
@@ -110,7 +109,8 @@ public:
       const int program_number = (int)data_[offset] * 256 + data_[offset + 1];
       ss << "  " << i << " program_number:\t" << program_number << "\n";
       ss << "  " << i << " ";
-      const int value = (int)(data_[offset + 2] & 0x1F) * 256 + data_[offset + 3];
+      const int value =
+        (int)(data_[offset + 2] & 0x1F) * 256 + data_[offset + 3];
       if (program_number == 0) { 
        ss << "network_PID:\t";
       } else {
@@ -129,7 +129,8 @@ public:
       const int offset = pmt_offset_ + i * 4;
       const int program_number = (int)data_[offset] * 256 + data_[offset + 1];
       if (program_number != 0) {
-        output->push_back((int)(data_[offset + 2] & 0x1F) * 256 + data_[offset + 3]);
+        output->push_back(
+            (int)(data_[offset + 2] & 0x1F) * 256 + data_[offset + 3]);
       }
     }
   }
@@ -147,7 +148,8 @@ class TsPmtPacket : public TsPacket {
 public:
   explicit TsPmtPacket(const char *data)
     : TsPacket(data) {
-    const size_t program_info_length = ((size_t)data_[15] & 0x0F) * 256 + data_[16];
+    const size_t program_info_length =
+      ((size_t)data_[15] & 0x0F) * 256 + data_[16];
     const size_t section_length = (size_t)(data_[6] & 0x0F) * 256 + data_[7];
     supported_ = (data_[4] == 0);  // There are unknown pointer fields or not.
     id_offset_ = 17 + program_info_length;
@@ -195,8 +197,12 @@ public:
         ss << " (unknown...exit)\n";
         break;
       }
-      ss << "  elem PID:\t" << (((int)data_[offset + pos + 1] & 0x01) * 256 + data_[offset + pos + 2]) << "\n";
-      const int descriptor_length = ((int)data_[offset + pos + 3] & 0x0F) * 256 + data_[offset + pos + 4];
+      ss << "  elem PID:\t"
+         << (((int)data_[offset + pos + 1] & 0x01) * 256 +
+             data_[offset + pos + 2])
+         << "\n";
+      const int descriptor_length =
+        ((int)data_[offset + pos + 3] & 0x0F) * 256 + data_[offset + pos + 4];
       pos += 5 + descriptor_length;
     }
     // CRC 4bytes
@@ -228,7 +234,8 @@ private:
       if (sid == stream_id) {
         return eid;
       }
-      const int descriptor_length = ((int)data_[offset + 3] & 0x0F) * 256 + data_[offset + 4];
+      const int descriptor_length =
+        ((int)data_[offset + 3] & 0x0F) * 256 + data_[offset + 4];
       offset += 5 + descriptor_length;
     }
     return -1;

@@ -37,15 +37,15 @@ my $base_dirname = $ENV{HOME} . '/enc';
 $options{tempdir} = "$base_dirname/encoding";
 $options{destdir} = "$base_dirname/encoded";
 $options{logdir} = "$base_dirname/log";
-$options{encoder} = "x264";
 GetOptions(\%options, qw/
-    help no_scale no_decimate no_encode no_clean no_lock public_log interlaced
-    tempdir=s destdir=s logdir=s scenefile=s scenelistfile=s logo=s encoder=s/)
+    help no_scale keep_fps analyze no_clean no_lock public_log interlaced
+    tempdir=s destdir=s logdir=s scenefile=s scenelistfile=s logo=s x265/)
     or die help();
 if ($options{help}) {
     help();
     exit(0);
 }
+validateOptions(\%options);
 
 our $HAS_LOCK = 0;
 our $CLEAN_DIR = undef;
@@ -76,11 +76,9 @@ for my $input_filename (@input_filenames) {
 
 my @scene_filenames = ();
 if (defined $options{scenefile}) {
-    die "Don't specify multiple input files with -scenefile option." if $#input_filenames != 0;
     push @scene_filenames, $options{scenefile};
 } 
 if (defined $options{scenelistfile}) {
-    die "Don't specify input files with -scenelist option." if $#input_filenames != -1;
     open my $scenelist_ofh, '<', $options{scenelistfile} or die;
     my @list = map {chomp; $_} grep({m/\S/} <$scenelist_ofh>);
     while ($#list >= 1) {
@@ -121,7 +119,7 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
 
     execute(qq|$script_dirname/ts_dumper.pl "$input_filename"|);
     if (defined $scene_filename) {
-        execute(qq|cp "$scene_filename" "scene_filtered.txt"|);
+        execute(qq|cp "$scene_filename" "scene.txt"|);
     } else {
         my $logo = LOGO_NAME_MAP->{$options{logo} // ''} // $options{logo};
         if ($logo) {
@@ -134,12 +132,14 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
         execute(qq|$script_dirname/scene_offset_extractor.pl|);
 
         if (-f 'scene_offset.txt') {
-            open my $offset_ifh, '<', 'scene_offset.txt' or die "Failed to open scene_offset.txt";
+            open my $offset_ifh, '<', 'scene_offset.txt'
+                or die "Failed to open scene_offset.txt";
             my ($start, $duration) = split '\s+', <$offset_ifh>;
             close $offset_ifh;
+            execute(qq|mv "raw_scene.txt" "raw_scene.txt.orig"|);
             execute(qq|mv "scene.txt" "scene.txt.orig"|);
-            execute(qq|mv "scene_filtered.txt" "scene_filtered.txt.orig"|);
-            execute(qq|$script_dirname/scene_change_detector.py --scene_time_filter=$start,$duration --no_dump=True|);
+            execute(qq|$script_dirname/scene_change_detector.py| .
+                    qq| --scene_time_filter=$start,$duration --no_dump=True|);
             execute(qq|$script_dirname/scene_filter.pl|);
         }
 
@@ -149,14 +149,14 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
             execute(qq|chmod -R 777 "$log_dirname"|);
         }
     }
-    if ($options{no_encode}) {
-        push @output_scenefilenames, "$log_dirname/scene_filtered.txt";
+    if ($options{analyze}) {
+        push @output_scenefilenames, "$log_dirname/scene.txt";
     } else {
         my @option_list = '';
-        push @option_list, '-no_scale' if $options{no_scale};
-        push @option_list, '-no_decimate' if $options{no_decimate};
-        push @option_list, '-interlaced' if $options{interlaced};
-        push @option_list, '-encoder=' . $options{encoder} if $options{encoder};
+        push @option_list, '--no_scale' if $options{no_scale};
+        push @option_list, '--keep_fps' if $options{keep_fps};
+        push @option_list, '--interlaced' if $options{interlaced};
+        push @option_list, '--x265' if $options{x265};
         my $option = join ' ', @option_list;
         execute(qq|$script_dirname/encoder.pl $option|);
         execute(qq|mv "result.mp4" "$output_filename"|);
@@ -168,7 +168,7 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
     }
 }
 
-if ($options{no_encode}) {
+if ($options{analyze}) {
     die "The number of output scene files should be equal to inputs."
         unless $#input_filenames == $#output_scenefilenames;
     my $scenelist_filename = sprintf(
@@ -193,22 +193,49 @@ sub help {
 encode.pl [options] [ts_file_1 ts_file_2 ...]
 encode.pl --scenelistfile scenelistfile
 
---tempdir: Temp directory
---destdir: Output directory
---logdir:  Log directory, which contains data for CM cut feature.
---no_encode:  Generate log data and scenelist file (for --scenelistfile) only.
---no_lock:  Run scripts without lock.
---no_clean:  Do not remove a temp directory.
---encoder: Video encoder. "x264" and "x265" are supported.
---no_scale:  Do not scale movies.
---no_decimate:  Do not decimate frames and keep original fps.
---interlaced:  Keep interlace.
---scenefile:  Use pre-generated scene file (scene_filtered.txt) for CM cut.
+--tempdir:    Temp directory
+--destdir:    Output directory
+--logdir:     Log directory, which contains data for CM cut.
+--logo:       Use logo detection for CM cut.
+--x265:       Use x265 instead of x264.
+--analyze:    Generate log data and scenelist file (for --scenelistfile) only.
+--no_lock:    Run scripts without lock.
+--no_clean:   Do not remove a temp directory.
+--no_scale:   Do not scale movies.
+--keep_fps:   Do not decimate frames to keep the original fps.
+--interlaced: Keep interlace.
+--scenefile:  Use pre-generated scene.txt for CM cut.
 --scenelistfile: Scenelist file for batch encoding.
-                 Use pre-generated scene files and TS files listed in this file.
+                 Use pre-generated list of scene.txt TS file in this file.
 --public_log: Make the permission of log data public.
 HELP
 }
+
+sub validateOptions {
+    my $options = shift;
+    if ($options->{interlaced}) {
+        die "Cannot use --keep_fps and --interlaced options at the same time"
+            if $options->{keep_fps};
+        die "Cannot use --no_scale and --interlaced options at the same time"
+            if $options->{no_scale};
+    }
+    die "Cannot use --scenefile and --scenelistfile at the same time."
+        if ($options->{scenefile} && $options->{scenelistfile});
+    die "Please specify only one input file with --scenefile"
+        if ($options->{scenefile} && $#ARGV == 1);
+    die "Cannot specify input file with --scenelistfile."
+        if ($options->{scenelistfile} && $#ARGV != 0);
+}
+
+GetOptions(\%options, qw/
+    help no_scale keep_fps analyze no_clean no_lock public_log interlaced
+    tempdir=s destdir=s logdir=s scenefile=s scenelistfile=s logo=s x265/)
+    or die help();
+if ($options{help}) {
+    help();
+    exit(0);
+}
+ValidateOptions(\%options);
 
 sub getLock {
     our $HAS_LOCK;

@@ -8,10 +8,10 @@ use constant {
         'logo.txt',
         'raw_silence.txt',
         'silence.txt',
+        'raw_scene.txt',
+        'raw_scene.txt.orig',
         'scene.txt',
         'scene.txt.orig',
-        'scene_filtered.txt',
-        'scene_filtered.txt.orig',
         'scene_offset.txt',
     ],
     TARGET_DIRNAMES => [
@@ -22,10 +22,10 @@ use File::Basename;
 use File::Path;
 use POSIX;
 
-my $scene_filename = 'scene.txt';
+my $raw_scene_filename = 'raw_scene.txt';
 my $output_dirname = shift @ARGV;
 
-die "No such file. [$scene_filename]" unless -f $scene_filename;
+die "No such file. [$raw_scene_filename]" unless -f $raw_scene_filename;
 die "Please specify the output directory." unless $output_dirname;
 die "Output directory already exists. [$output_dirname]" if -e $output_dirname;
 
@@ -39,7 +39,8 @@ for my $dirname (@{TARGET_DIRNAMES()}) {
     `cp -R "$dirname" "$output_dirname/$dirname"`;
 }
 
-open my $fh, '<', $scene_filename or die qq|Failed to load "$scene_filename".|;
+open my $fh, '<', $raw_scene_filename
+    or die qq|Failed to load "$raw_scene_filename".|;
 my @lines = <$fh>;
 close $fh;
 

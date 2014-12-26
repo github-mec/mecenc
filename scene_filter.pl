@@ -11,12 +11,13 @@ use List::Util qw/min max/;
 use POSIX;
 
 
-my $input_filename = 'scene.txt';
+my $input_filename = 'raw_scene.txt';
 die "No such file. [$input_filename]" unless -f $input_filename;
-my $output_filename = "scene_filtered.txt";
+my $output_filename = "scene.txt";
 die "A file already exists. [$output_filename]" if -e $output_filename;
 
-open my $input_fh, '<', $input_filename or die "Failed to open a file. [$input_filename]";
+open my $input_fh, '<', $input_filename
+    or die "Failed to open a file. [$input_filename]";
 my @lines;
 push @lines, map {chomp; $_} <$input_fh>;
 close $input_fh;
@@ -64,7 +65,8 @@ for my $value (@candidates) {
 @result = filterShortCmGroup(@result);
 @result = filterAggregateBody(@result);
 
-open my $output_fh, '>', $output_filename or die "Failed to open file. [$output_filename]";
+open my $output_fh, '>', $output_filename
+    or die "Failed to open file. [$output_filename]";
 print $output_fh "$_\n" for @result;
 close $output_fh;
 
