@@ -17,14 +17,6 @@ bool CompareCharacters(const char *expected, char **actual) {
     result &= expected[i] == (*actual)[i];
   }
 
-  /*
-  char buf[length + 1];
-  for (size_t i = 0; i < length; ++i) {
-    buf[i] = (*actual)[i];
-  }
-  buf[length] = '\0';
-  cerr << "expected: " << expected << ", actual: " << buf << endl;
-  */
   *actual += length;
   return result;
 }
@@ -43,10 +35,8 @@ int ReadNumber(char **buf, size_t size) {
     result = static_cast<int>(*reinterpret_cast<short *>(*buf));
     break;
   case 3:
-//    result = (*buf)[0] | ((*buf)[1] << 8) | ((*buf)[2] << 16) | (-(((*buf)[2] & 0x80) << 17));
     mask = ((*buf)[2] & 0x80) ? 0xFF000000 : 0x0;
     result = static_cast<int>((*reinterpret_cast<unsigned int *>(*buf) & 0x00FFFFFF) | mask);
-//    result = static_cast<int>((*reinterpret_cast<unsigned int *>(*buf) & 0x00FFFFFF) | (-(((*buf)[2] & 0x80) << 17)));
     break;
   case 4:
     result = *reinterpret_cast<int *>(*buf);
@@ -79,17 +69,6 @@ string SamplingToTime(size_t sampling_counter, size_t sampling_rate) {
   const int milli_seconds = 1000 * sampling_counter / sampling_rate;
   const int seconds = milli_seconds / 1000;
   ss << seconds << "." << setfill('0') << setw(3) << (milli_seconds % 1000);
-  /*
-  const int minutes = seconds / 60;
-  const int hours = minutes / 60;
-  ss << setfill('0') << setw(2) << hours
-     << ":"
-     << setfill('0') << setw(2) << minutes % 60
-     << ":"
-     << setfill('0') << setw(2) << seconds % 60
-     << "."
-     << setfill('0') << setw(3) << milli_seconds % 1000;
-  */
   return ss.str();
 }
 
@@ -134,11 +113,6 @@ int main(int argc, char *argv[]) {
 
   const size_t fmt_size = ReadUnsignedInt(&file_buf_ptr);
   const unsigned short format_id = ReadUnsignedShort(&file_buf_ptr);
-  // ffmpeg output invalid format_id for 24bit or 32bit PCM.
-  //  if (format_id != 1) {
-  //    cerr << "Invalid format ID: " << format_id << endl;
-  //    return -1;
-  //  }
 
   const int channel_num = ReadUnsignedShort(&file_buf_ptr);
   const int sampling_rate = ReadUnsignedInt(&file_buf_ptr);
@@ -190,11 +164,11 @@ int main(int argc, char *argv[]) {
     const int left_sound = ReadNumber(&file_buf_ptr, sampling_bytes);
     const int right_sound = ReadNumber(&file_buf_ptr, sampling_bytes);
 
-    // TODO: It may be better to use the differences from the previous values.
     if (abs(left_sound) <= kVolumeThreshold && abs(right_sound) <= kVolumeThreshold) { 
       ++mute_counter;
       if (mute_counter == minimum_mute_chunk_threshold) {
-        mute_ranges.push_back(make_pair(sampling_counter - minimum_mute_chunk_threshold + 1, 0));
+        mute_ranges.push_back(make_pair(sampling_counter - minimum_mute_chunk_threshold + 1,
+                                        max_sampling_count));
       }
     } else {
       if (mute_counter >= minimum_mute_chunk_threshold) {
