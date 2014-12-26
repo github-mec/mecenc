@@ -40,7 +40,7 @@ $options{logdir} = "$base_dirname/log";
 GetOptions(\%options, qw/
     help no_scale keep_fps analyze no_clean no_lock public_log interlaced
     tempdir=s destdir=s logdir=s scenefile=s scenelistfile=s logo=s x265/)
-    or die help();
+    or exitWithError('Failed to parse options.');
 if ($options{help}) {
     help();
     exit(0);
@@ -55,7 +55,7 @@ for my $option_name (qw/tempdir destdir logdir/) {
     my $dirname = $options{$option_name};
     next if -e $dirname;
     mkpath($dirname, {verbose => 0})
-        or die "Failed to create a directory. [$dirname]";
+        or exitWithError("Failed to create a directory. [$dirname]");
 }
 
 my $script_dirname = getBaseDirectoryName() . "/scripts";
@@ -65,8 +65,8 @@ my $original_dirname = Cwd::getcwd();
 
 my @input_filenames = map {File::Spec->rel2abs($_)} @ARGV;
 for my $input_filename (@input_filenames) {
-    die "No such file. [$input_filename]" unless -f $input_filename;
-    die "Input file should be ts or mp4."
+    exitWithError("No such file. [$input_filename]") unless -f $input_filename;
+    exitWithError("Input file should be ts or mp4.")
         unless $input_filename =~ m%([^/]+)\.(ts|mp4|ts\.filepart)$%;
 }
 
@@ -75,7 +75,8 @@ if (defined $options{scenefile}) {
     push @scene_filenames, $options{scenefile};
 } 
 if (defined $options{scenelistfile}) {
-    open my $scenelist_ofh, '<', $options{scenelistfile} or die;
+    open(my $scenelist_ofh, '<', $options{scenelistfile})
+        or exitWithError('Cannot open ' . $options{scenelistfile});
     my @list = map {chomp; $_} grep({m/\S/} <$scenelist_ofh>);
     while ($#list >= 1) {
         push @input_filenames, shift(@list);
@@ -84,7 +85,7 @@ if (defined $options{scenelistfile}) {
     close $scenelist_ofh;
 }
 
-die "Input argument num check failure."
+exitWithError("Input argument num check failure.")
     unless ($#scene_filenames == -1 || $#input_filenames == $#scene_filenames);
 
 my @output_scenefilenames = ();
@@ -99,7 +100,8 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
     $CLEAN_DIR = $options{no_clean} ? undef : $working_dirname;
 
     if (!mkdir($working_dirname) || !chdir($working_dirname)) {
-        die "Failed to create a working directory. [$working_dirname]";
+        exitWithError(
+            "Failed to create a working directory. [$working_dirname]");
     }
 
     my $output_filename = "$dest_dirname/$basename.mp4";
@@ -110,7 +112,7 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
     print "output: $output_filename\n";
     print "log: $log_dirname\n";
     if (-e $output_filename || -e $log_dirname) {
-        die "Output file and/or log directory already exists.";
+        exitWithError("Output file and/or log directory already exists.");
     }
 
     execute(qq|$script_dirname/ts_dumper.pl "$input_filename"|);
@@ -129,7 +131,7 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
 
         if (-f 'scene_offset.txt') {
             open my $offset_ifh, '<', 'scene_offset.txt'
-                or die "Failed to open scene_offset.txt";
+                or exitWithError("Failed to open scene_offset.txt");
             my ($start, $duration) = split '\s+', <$offset_ifh>;
             close $offset_ifh;
             execute(qq|mv "raw_scene.txt" "raw_scene.txt.orig"|);
@@ -160,18 +162,18 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
     cleanTempDirectory();
 
     if (!chdir($original_dirname)) {
-        die "Failed to create a working directory.";
+        exitWithError("Failed to change directory to $original_dirname");
     }
 }
 
 if ($options{analyze}) {
-    die "The number of output scene files should be equal to inputs."
+    exitWithError("The number of output scene files should be equal to inputs.")
         unless $#input_filenames == $#output_scenefilenames;
     my $scenelist_filename = sprintf(
         '%s/%s_scenelist.txt',
         File::Spec->rel2abs($options{logdir}), getTimestampString());
     open my $scenelist_ofh, '>', $scenelist_filename
-        or die "Failed to create a file. [$scenelist_filename]";
+        or exitWithError("Failed to create a file. [$scenelist_filename]");
     for (my $i = 0; $i <= $#input_filenames; ++$i) {
         print $scenelist_ofh $input_filenames[$i], "\n";
         print $scenelist_ofh $output_scenefilenames[$i], "\n";
@@ -210,34 +212,27 @@ HELP
 sub validateOptions {
     my $options = shift;
     if ($options->{interlaced}) {
-        die "Cannot use --keep_fps and --interlaced options at the same time"
+        exitWithError(
+            "Cannot use --keep_fps and --interlaced options at the same time")
             if $options->{keep_fps};
-        die "Cannot use --no_scale and --interlaced options at the same time"
+        exitWithError(
+            "Cannot use --no_scale and --interlaced options at the same time")
             if $options->{no_scale};
     }
-    die "Cannot use --scenefile and --scenelistfile at the same time."
+    exitWithError(
+        "Cannot use --scenefile and --scenelistfile at the same time.")
         if ($options->{scenefile} && $options->{scenelistfile});
-    die "Please specify only one input file with --scenefile"
+    exitWithError("Please specify only one input file with --scenefile")
         if ($options->{scenefile} && $#ARGV == 1);
-    die "Cannot specify input file with --scenelistfile."
+    exitWithError("Cannot specify input file with --scenelistfile.")
         if ($options->{scenelistfile} && $#ARGV != 0);
     my $logo_name = $options->{logo};
     my $logo_dirname = getBaseDirectoryName() . '/logo';
     for my $ext ("txt", "png") {
         my $path = sprintf("%s/%s.%s", $logo_dirname, $logo_name, $ext);
-        die qq|Please prepare "$path"| if !-f $path;
+        exitWithError(qq|Please prepare "$path"|) if !-f $path;
     }
 }
-
-GetOptions(\%options, qw/
-    help no_scale keep_fps analyze no_clean no_lock public_log interlaced
-    tempdir=s destdir=s logdir=s scenefile=s scenelistfile=s logo=s x265/)
-    or die help();
-if ($options{help}) {
-    help();
-    exit(0);
-}
-ValidateOptions(\%options);
 
 sub getLock {
     our $HAS_LOCK;
@@ -272,9 +267,7 @@ sub execute {
     my $command = shift;
     my $ret = system($command);
     if ($ret) {
-        print "Failed: $command\n";
-        errorHandler();
-        exit($ret);
+        exitWithError("Failed: $command\nReturn code: $ret");
     }
 }
 
@@ -299,4 +292,10 @@ sub getBaseDirectoryName {
     $script_path = readlink($script_path) while -l $script_path;
     $script_path =~ s/ /\\ /g;
     return File::Basename::dirname($script_path);
+}
+
+sub exitWithError {
+    my $message = shift;
+    print STDERR $message, "\n";
+    errorHandler();
 }
