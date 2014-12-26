@@ -123,7 +123,7 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
     if (defined $scene_filename) {
         execute(qq|cp "$scene_filename" "scene.txt"|);
     } else {
-        my $logo = LOGO_NAME_MAP->{$options{logo} // ''} // $options{logo};
+        my $logo = getLogoName(\%options);
         if ($logo) {
             execute(qq|$script_dirname/scene_change_detector.py --logo=$logo|);
             execute(qq|$script_dirname/logo_detector.py --logo=$logo|);
@@ -230,8 +230,8 @@ sub validateOptions {
         if ($options->{scenefile} && $#ARGV == 1);
     exitWithError("Cannot specify input file with --scenelistfile.")
         if ($options->{scenelistfile} && $#ARGV != 0);
-    if ($options->{logo}) {
-        my $logo_name = $options->{logo};
+    my $logo_name = getLogoName($options);
+    if ($logo_name) {
         my $logo_dirname = getBaseDirectoryName() . '/logo';
         for my $ext ("txt", "png") {
             my $path = sprintf("%s/%s.%s", $logo_dirname, $logo_name, $ext);
@@ -291,6 +291,11 @@ sub getTimestampString {
     my ($min, $hour, $mday, $mon, $year) = (localtime(time))[1, 2, 3, 4, 5];
     return sprintf('%04d-%02d-%02d_%02d%02d',
                    $year + 1900, $mon + 1, $mday, $hour, $min);
+}
+
+sub getLogoName {
+    my $options = shift;
+    return LOGO_NAME_MAP->{$options->{logo} // ''} // $options->{logo};
 }
 
 sub getBaseDirectoryName {
