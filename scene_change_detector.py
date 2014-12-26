@@ -166,6 +166,7 @@ def DumpImages(options, movie_filename, frame_list):
     process = subprocess.Popen(command, stdout=None, stderr=subprocess.PIPE)
     output = process.communicate()[1]
     if process.returncode != 0:
+        logging.error(output)
         logging.error('Failed to dump images.')
         sys.exit(process.returncode)
 
@@ -185,7 +186,8 @@ def CreateDumpedMovie(index):
     process = subprocess.Popen(command, stdout=None, stderr=subprocess.PIPE)
     output = process.communicate()[1]
     if process.returncode != 0:
-        logging.error('Failed to create a dumped movie. index:%d.', i)
+        logging.error(output)
+        logging.error('Failed to create a dumped movie. index:%d.', index)
         sys.exit(process.returncode)
 
 
@@ -215,7 +217,8 @@ def AnalyzeMovie(dirname):
     process = subprocess.Popen(command, stdout=None, stderr=subprocess.PIPE)
     output = process.communicate()[1]
     if process.returncode != 0:
-        logging.error('Failed to dump images.')
+        logging.error(output)
+        logging.error('Failed to analyze a movie.')
         sys.exit(process.returncode)
 
     matcher = re.compile(r'n:(\d+) .+ type:I ')
