@@ -58,11 +58,7 @@ for my $option_name (qw/tempdir destdir logdir/) {
         or die "Failed to create a directory. [$dirname]";
 }
 
-my $script_path = File::Spec->rel2abs($0);
-$script_path = readlink($script_path) while -l $script_path;
-my $script_dirname = File::Basename::dirname($script_path) . "/scripts";
-$script_dirname =~ s/ /\\ /g;
-
+my $script_dirname = getBaseDirectoryName() . "/scripts";
 my $temp_dirname = File::Spec->rel2abs($options{tempdir});
 my $dest_dirname = File::Spec->rel2abs($options{destdir});
 my $original_dirname = Cwd::getcwd();
@@ -225,6 +221,12 @@ sub validateOptions {
         if ($options->{scenefile} && $#ARGV == 1);
     die "Cannot specify input file with --scenelistfile."
         if ($options->{scenelistfile} && $#ARGV != 0);
+    my $logo_name = $options->{logo};
+    my $logo_dirname = getBaseDirectoryName() . '/logo';
+    for my $ext ("txt", "png") {
+        my $path = sprintf("%s/%s.%s", $logo_dirname, $logo_name, $ext);
+        die qq|Please prepare "$path"| if !-f $path;
+    }
 }
 
 GetOptions(\%options, qw/
@@ -290,4 +292,11 @@ sub getTimestampString {
     my ($min, $hour, $mday, $mon, $year) = (localtime(time))[1, 2, 3, 4, 5];
     return sprintf('%04d-%02d-%02d_%02d%02d',
                    $year + 1900, $mon + 1, $mday, $hour, $min);
+}
+
+sub getBaseDirectoryName {
+    my $script_path = File::Spec->rel2abs($0);
+    $script_path = readlink($script_path) while -l $script_path;
+    $script_path =~ s/ /\\ /g;
+    return File::Basename::dirname($script_path);
 }
