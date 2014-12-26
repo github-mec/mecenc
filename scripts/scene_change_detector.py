@@ -17,7 +17,7 @@ HISTOGRAM_BIN_N = 64
 
 def ParseLogoInformation(logo_name):
     logo_dir = os.path.join(
-        os.path.abspath(os.path.dirname(__file__)), 'logo')
+        os.path.abspath(os.path.dirname(__file__)), '../logo')
     required_keys = set(('offset_x', 'offset_y', 'width', 'height'))
     info = {}
     input_filename = '%s/%s.txt' % (logo_dir, logo_name)

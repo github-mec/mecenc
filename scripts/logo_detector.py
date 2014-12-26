@@ -12,6 +12,7 @@ import optparse
 def GetLogoFileName(options):
     return os.path.join(
         os.path.abspath(os.path.dirname(__file__)),
+        '..',
         'logo',
         '%s.png' % options.logo)
 

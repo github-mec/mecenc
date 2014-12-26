@@ -60,7 +60,7 @@ for my $option_name (qw/tempdir destdir logdir/) {
 
 my $script_path = File::Spec->rel2abs($0);
 $script_path = readlink($script_path) while -l $script_path;
-my $script_dirname = File::Basename::dirname($script_path);
+my $script_dirname = File::Basename::dirname($script_path) . "/scripts";
 $script_dirname =~ s/ /\\ /g;
 
 my $temp_dirname = File::Spec->rel2abs($options{tempdir});
