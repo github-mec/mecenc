@@ -226,11 +226,13 @@ sub validateOptions {
         if ($options->{scenefile} && $#ARGV == 1);
     exitWithError("Cannot specify input file with --scenelistfile.")
         if ($options->{scenelistfile} && $#ARGV != 0);
-    my $logo_name = $options->{logo};
-    my $logo_dirname = getBaseDirectoryName() . '/logo';
-    for my $ext ("txt", "png") {
-        my $path = sprintf("%s/%s.%s", $logo_dirname, $logo_name, $ext);
-        exitWithError(qq|Please prepare "$path"|) if !-f $path;
+    if ($options->{logo}) {
+        my $logo_name = $options->{logo};
+        my $logo_dirname = getBaseDirectoryName() . '/logo';
+        for my $ext ("txt", "png") {
+            my $path = sprintf("%s/%s.%s", $logo_dirname, $logo_name, $ext);
+            exitWithError(qq|Please prepare "$path"|) if !-f $path;
+        }
     }
 }
 
