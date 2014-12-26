@@ -77,8 +77,10 @@ sub frameToTime {
     my $sec = floor($time);
     my $result = '';
     if ($sec >= 3600) {
-        $result .= floor($sec / 3600) . ':';
-        $sec = $sec % 3600;
+        my $hour = floor($sec / 3600);
+        $result .= sprintf('%d:', $hour);
+        $time -= $hour * 3600;
+        $sec -= $hour * 3600;
     }
     $result .= sprintf('%02d:%02d.%02d', floor($sec / 60), $sec % 60, floor(($time - $sec) * 100));
     return $result;
