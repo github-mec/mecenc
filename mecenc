@@ -59,6 +59,10 @@ for my $option_name (qw/tempdir destdir logdir/) {
 }
 
 my $script_dirname = getBaseDirectoryName() . "/scripts";
+exitWithError(
+    sprintf "Cannot access to sub-scripts of mecenc under %s", $script_dirname)
+    if !-f "$script_dirname/ts_dumper.pl";
+
 my $temp_dirname = File::Spec->rel2abs($options{tempdir});
 my $dest_dirname = File::Spec->rel2abs($options{destdir});
 my $original_dirname = Cwd::getcwd();
