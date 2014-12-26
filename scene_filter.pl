@@ -18,17 +18,19 @@ die "A file already exists. [$output_filename]" if -e $output_filename;
 
 open my $input_fh, '<', $input_filename or die "Failed to open a file. [$input_filename]";
 my @lines;
-push @lines, <$input_fh>;
+push @lines, map {chomp; $_} <$input_fh>;
 close $input_fh;
 
 my $logo_data = loadLogoData();
 my @candidates = ();
 my %cm_set = ();
 push @candidates, $lines[0];
+
 LINE: for (my $i = 0; $i < $#lines - 1; ++$i) {
     # CM of the previous program may exist.
     if (getExactFrame($lines[$i + 1]) < RECORDER_MAX_HEAD_MARGIN_FRAMES) {
         push @candidates, $lines[$i];
+        push @candidates, $lines[$i + 1];
         $cm_set{$lines[$i]} = 1;
         next LINE;
     }
@@ -45,16 +47,15 @@ LINE: for (my $i = 0; $i < $#lines - 1; ++$i) {
         }
     }
 }
+
 push @candidates, $lines[$#lines];
 @candidates = do { my %c; grep {!$c{$_}++} @candidates };  # uniq
 
 my @result = ();
 for my $value (@candidates) {
     if ($cm_set{$value} || $value eq $candidates[$#candidates]) {
-        chomp $value;
         push @result, "$value CM";
     } else {
-        chomp $value;
         push @result, "$value BODY";
     }
 }
