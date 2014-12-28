@@ -227,9 +227,9 @@ sub validateOptions {
         "Cannot use --scenefile and --scenelistfile at the same time.")
         if ($options->{scenefile} && $options->{scenelistfile});
     exitWithError("Please specify only one input file with --scenefile")
-        if ($options->{scenefile} && $#ARGV == 1);
+        if ($options->{scenefile} && $#ARGV == 0);
     exitWithError("Cannot specify input file with --scenelistfile.")
-        if ($options->{scenelistfile} && $#ARGV != 0);
+        if ($options->{scenelistfile} && $#ARGV != -1);
     my $logo_name = getLogoName($options);
     if ($logo_name) {
         my $logo_dirname = getBaseDirectoryName() . '/logo';
