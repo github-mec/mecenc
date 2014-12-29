@@ -1,10 +1,16 @@
+# How to extract broadcaster watermark
+    ./logo_extractor input_file.ts logo_name.txt start_time end_time
+* Some of logo\_name.txt is available under logo/ directory.
+* Specify analysis range of input\_file.ts by start\_time and end\_time.
+* All frames in analysis range should have broadcaster warermark.
+
 # How to use:
 
 ## Simple
     ./mecenc input_file_1.ts [input_file_2.ts ...]
 * CM detection.
 * Encode by x264.
-* Convert the frame ratio from keep_fps to 24fps and deinterlace.
+* Convert the frame ratio from keep\_fps to 24fps and deinterlace.
 * Shrink the movie to 1280 x 720 since almost all animations are created in this resolution.
 * Don't use broadcaster watermark detection for CM detection.
 * Working / output / log directory is in ~/enc/.

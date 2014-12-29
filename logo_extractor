@@ -1,0 +1,157 @@
+#!/usr/bin/python
+
+import cv
+import cv2
+import logging
+import math
+import optparse
+import os
+import re
+import subprocess
+import sys
+import numpy
+import time
+import numpy
+
+# Should be in [0, 1)
+TARGET_BRIGHTNESS_LIST = (
+    0.003, 0.005, 0.010, 0.015, 0.020,
+    0.030, 0.050, 0.070, 0.100, 0.150,
+)
+
+def Help():
+    print ('python logo_extractor.py'
+           ' input_video.ts input_geometry.txt start_second end_second')
+    print ''
+    print 'Note:'
+    print ('Please specify start_time and end_time to ensure that all of the'
+           'frames in this range have broadcaster watermark.')
+    sys.exit(-1)
+
+
+def GetOutputFileName(name, index):
+    return '%s_%02d.png' % (name, index)
+
+
+def LoadGeometry(filename):
+    values = {}
+    with open(filename, 'r') as input_file:
+        for line in input_file:
+            (key, value) = line.split(':')
+            key.strip()
+            value.strip()
+            values[key] = int(value)
+    return values
+
+
+def Main():
+    if len(sys.argv) != 5:
+        logging.error('Please specify 4 arguments.')
+        Help();
+    movie_filename = sys.argv[1]
+    geometry_filename = sys.argv[2]
+    start_time = float(sys.argv[3])
+    end_time = float(sys.argv[4])
+    output_name = os.path.basename(re.sub('\.txt$', '', geometry_filename))
+
+    if not os.path.isfile(movie_filename):
+        logging.error('Movie file is not found: %s', movie_filename)
+        Help();
+    if not os.path.isfile(geometry_filename):
+        logging.error('Data file is not found: %s', geometry_filename)
+        Help();
+
+    capture = cv2.VideoCapture(movie_filename)
+    image_width = int(capture.get(cv.CV_CAP_PROP_FRAME_WIDTH))
+    image_height = int(capture.get(cv.CV_CAP_PROP_FRAME_HEIGHT))
+    total_frame_num = int(capture.get(cv.CV_CAP_PROP_FRAME_COUNT))
+    fps = float(capture.get(cv.CV_CAP_PROP_FPS))
+    duration = total_frame_num * fps
+
+    geometry = LoadGeometry(geometry_filename)
+
+    logging.info("Input info: size: %d x %d, frame_num: %d, duration: %d",
+                 image_width, image_height, total_frame_num, duration)
+    logging.info("Geometry info: offset_x:%d, offset_y:%d, width:%d, height:%d",
+                 geometry['offset_x'], geometry['offset_y'],
+                 geometry['width'], geometry['height'])
+
+    if start_time < 0:
+        logging.error('start_time should be positive value: %d', start_time)
+        Help();        
+    if end_time < start_time:
+        logging.error('end_time should be smaller than start_time: %d',
+                      end_time)
+        Help();
+    if duration < end_time:
+        logging.error('end_time should be smaller than movie duration: %d',
+                      end_time)
+        Help();
+    analysis_range = end_time - start_time
+    if analysis_range < 300:
+        logging.error('Analysis range should be have at least 300 seconds.')
+        Help();
+    if analysis_range > 1200:
+        logging.error('Analysis range should be smaller than 1200 seconds.')
+        Help();
+
+    for i in xrange(len(TARGET_BRIGHTNESS_LIST)):
+        output_filename = GetOutputFileName(output_name, i)
+        if os.path.exists(output_filename):
+            logging.error('Output file already exists: %s', output_filename)
+            Help();
+
+    left = geometry['offset_x']
+    top = geometry['offset_y']
+    right = geometry['width'] + left
+    bottom = geometry['height'] + top
+    if left >= right or top >= bottom:
+        logging.error('Invalid logo geometry.')
+        Help()
+    if left < 0 or right > image_width or top < 0 or bottom > image_height:
+        logging.error('Invalid logo geometry. The input video size is %d x %d.',
+                      image_width, image_height)
+        Help()
+    if left % 4 != 0 or top % 4 != 0 or right % 4 != 0 or bottom % 4 != 0:
+        logging.error('Invalid logo geometry.'
+                      ' All value should be multiple of 4.')
+        Help()
+    width = right - left
+    height = bottom - top
+
+    analysis_frame_num = int((end_time - start_time) * fps)
+    logging.info("Loading input. Target frame num: %d", analysis_frame_num)
+
+    capture.set(cv.CV_CAP_PROP_POS_FRAMES, int(start_time * fps) + 1)
+    gray_frames = []
+    for frame_index in xrange(analysis_frame_num):
+        frame = capture.read()[1]
+        trimmed_frame = frame[top:bottom, left:right]
+        gray_frames.append(cv2.split(trimmed_frame)[0])
+        if frame_index % 1000 == 0:
+            logging.info('  progress: %4.1f%%',
+                         100.0 * frame_index / analysis_frame_num)
+
+    logging.info('Input is loaded. Analyzing...')
+
+    target_indices = []
+    results = []
+    for brightness in TARGET_BRIGHTNESS_LIST:
+        target_indices.append(int(len(gray_frames) * brightness))
+        results.append(numpy.zeros((height, width), dtype='uint8'))
+
+    for y in xrange(height):
+        logging.info('  progress: %4.1f%%', 100.0 * y / height)
+        for x in xrange(width):
+            values = sorted([image[y][x] for image in gray_frames])
+            for i, target_index in enumerate(target_indices):
+                value = values[target_index]
+                results[i][y][x] = value if value > 24 else 0
+
+    for i, result in enumerate(results):
+        cv2.imwrite(GetOutputFileName(output_name, i), result)
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    Main()
