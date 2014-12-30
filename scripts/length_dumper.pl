@@ -9,6 +9,6 @@ for my $filename (@ARGV) {
     die unless -f $filename;
     my $value = (`ffmpeg -i "$filename" 2>&1 1| grep "Duration: "`)[0];
     $value =~ m/Duration: ([\d:]+)/;
-    print sprintf("%2d: %s\n", $index, $1);
+    print sprintf("%2d: %s (%s)\n", $index, $1, $filename);
     ++$index;
 }
