@@ -13,6 +13,7 @@ import numpy
 
 FRAME_DURATION = 1001 / 30000.0
 HISTOGRAM_BIN_N = 64
+MAX_KEYFRAME_INTERVAL = 30
 
 
 def ParseLogoInformation(logo_name):
@@ -93,23 +94,42 @@ def GetPeriodicalDumpDirname():
     return dirname
 
 
+def GetFirstKeyFrameIndex(filename):
+    process = subprocess.Popen(
+        ['ffmpeg',
+         '-i', filename,
+         '-vframes', str(MAX_KEYFRAME_INTERVAL),
+         '-filter:v', 'showinfo',
+         '-f', 'null',
+         '-y', '/dev/null'],
+        stdout=None, stderr=subprocess.PIPE)
+    output = process.communicate()[1]
+
+    regex = re.compile(' n:(\d+)\s.+\siskey:1\s')
+    for line in output.split('\n'):
+        match = regex.search(line)
+        if not match:
+            continue
+        return int(match.group(1))
+    # Failed to detect the first key frame.
+    return 0
+
+
 def FilterSilenceRanges(options, start, end):
     if options.scene_time_filter is None:
         return ((start, end),)
 
     (filter_start, filter_duration) = map(
         float, options.scene_time_filter.split(','))
-    filter_start = filter_start + int(start)
+    filter_start = filter_start + int(start) - 1
     result = []
     while filter_start < end:
         filter_end = filter_start + filter_duration
         if filter_start < start:
             if start < filter_end:
-                result.append([start, filter_end])
-        elif end < filter_end:
-            result.append([filter_start, end])
+                result.append([start, min(end, filter_end)])
         else:
-            result.append([filter_start, filter_end])
+            result.append([filter_start, min(end, filter_end)])
         filter_start = filter_start + 1
     result.reverse()
 
@@ -335,7 +355,7 @@ def Analyze(options, dump_dirname, frame):
         check_first_frame = True
         trim_frames = 0
     else:
-        check_first_frame = frame['start'] < 5
+        check_first_frame = frame['start'] < MAX_KEYFRAME_INTERVAL
         trim_frames = 14
 
     distances = LoadHistogramDistances(dump_dirname)
@@ -394,13 +414,17 @@ def Analyze(options, dump_dirname, frame):
     return fallback_frame
 
 
-def LoadSilenceFrameList(options, silence_filename, audio_delay):
+def LoadSilenceFrameList(options, silence_filename, audio_delay,
+                         firstKeyFrameIndex):
+    start_time = FrameNumToTime(firstKeyFrameIndex) + 1e-8
+
     frame_list = []
     with open(silence_filename) as silence_file:
         # skip first line
         silence_file.readline()
         for line in silence_file:
-            (start, end) = map((lambda x: float(x) - audio_delay),
+            (start, end) = map((lambda x: max(start_time,
+                                              float(x) - audio_delay)),
                                line.strip().split(' '))
             result_ranges = []
             for filtered_range in FilterSilenceRanges(options, start, end):
@@ -433,7 +457,8 @@ def Main():
 
     options = ParseOptions()
     frame_list = LoadSilenceFrameList(
-        options, silence_filename, GetDelay(movie_filename))
+        options, silence_filename, GetDelay(movie_filename),
+        GetFirstKeyFrameIndex(movie_filename))
 
     if not options.no_dump:
         # TODO: Extract dump logic as another script.
@@ -444,8 +469,7 @@ def Main():
 
     assert len(frame_list) == len(results)
     with open(output_filename, 'w') as output_file:
-        for i in xrange(len(results)):
-            result = results[i]
+        for i, result in enumerate(results):
             if result > 0:
                 mode = 'exact'
             else:
