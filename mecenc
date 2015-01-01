@@ -41,7 +41,7 @@ GetOptions(\%options, qw/
     help no_scale keep_fps analyze no_clean no_lock public_log interlaced
     tempdir=s destdir=s logdir=s scenefile=s scenelistfile=s logo=s x265/)
     or exitWithError('Failed to parse options.');
-if ($options{help}) {
+if ($options{help} || $#ARGV == -1) {
     help();
     exit(0);
 }
