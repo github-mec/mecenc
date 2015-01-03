@@ -234,7 +234,7 @@ sub validateOptions {
     exitWithError("Cannot specify input file for --scenelistfile.")
         if ($options->{scenelistfile} && $#ARGV != -1);
     exitWithError("CRF should be in 0.0 <= CRF <= 51.0")
-        if ($options->{crf} < 0 || $options->{crf} > 51);
+        if ($options->{crf} && ($options->{crf} < 0 || $options->{crf} > 51));
     my $logo_name = getLogoName($options);
     if ($logo_name) {
         my $logo_dirname = getBaseDirectoryName() . '/logo';
