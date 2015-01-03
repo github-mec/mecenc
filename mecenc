@@ -39,9 +39,9 @@ $options{destdir} = "$base_dirname/encoded";
 $options{logdir} = "$base_dirname/log";
 GetOptions(\%options, qw/
     help no_scale keep_fps analyze no_clean no_lock public_log interlaced
-    tempdir=s destdir=s logdir=s scenefile=s scenelistfile=s logo=s x265/)
+    tempdir=s destdir=s logdir=s scenefile=s scenelistfile=s logo=s x265 crf=f/)
     or exitWithError('Failed to parse options.');
-if ($options{help} || $#ARGV == -1) {
+if ($options{help} || ($#ARGV == -1 && !$options{scenelistfile})) {
     help();
     exit(0);
 }
@@ -159,6 +159,7 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
         push @option_list, '--keep_fps' if $options{keep_fps};
         push @option_list, '--interlaced' if $options{interlaced};
         push @option_list, '--x265' if $options{x265};
+        push @option_list, '--crf=' . $options{crf} if $options{crf};
         my $option = join ' ', @option_list;
         execute(qq|$script_dirname/encoder.pl $option|);
         execute(qq|mv "result.mp4" "$output_filename"|);
@@ -192,8 +193,8 @@ exit(0);
 
 sub help {
     print <<'HELP';
-encode.pl [options] [ts_file_1 ts_file_2 ...]
-encode.pl --scenelistfile scenelistfile
+$ mecenc [options] [ts_file_1 ts_file_2 ...]
+$ mecenc --scenelistfile scenelistfile
 
 --tempdir:    Temp directory
 --destdir:    Output directory
@@ -206,6 +207,7 @@ encode.pl --scenelistfile scenelistfile
 --no_scale:   Do not scale movies.
 --keep_fps:   Do not decimate frames to keep the original fps.
 --interlaced: Keep interlace.
+--crf       : Set CRF to specify the video quality. (default: x264:18, x265:19)
 --scenefile:  Use pre-generated scene.txt for CM cut.
 --scenelistfile: Scenelist file for batch encoding.
                  Use pre-generated list of scene.txt TS file in this file.
@@ -231,6 +233,8 @@ sub validateOptions {
         if ($options->{scenefile} && $#ARGV != 0);
     exitWithError("Cannot specify input file for --scenelistfile.")
         if ($options->{scenelistfile} && $#ARGV != -1);
+    exitWithError("CRF should be in 0.0 <= CRF <= 51.0")
+        if ($options->{crf} < 0 || $options->{crf} > 51);
     my $logo_name = getLogoName($options);
     if ($logo_name) {
         my $logo_dirname = getBaseDirectoryName() . '/logo';
