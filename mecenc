@@ -30,7 +30,10 @@ use Getopt::Long;
 $SIG{TERM} = \&errorHandler;
 $SIG{INT} = \&errorHandler;
 $SIG{HUP} = \&errorHandler;
-$SIG{__DIE__} = \&errorHandlerWithoutExit;
+
+END {
+    errorHandlerWithoutExit();
+}
 
 my %options;
 my $base_dirname = $ENV{HOME} . '/enc';
@@ -186,8 +189,6 @@ if ($options{analyze}) {
     close $scenelist_ofh;
 }
 
-unlock() unless $options{no_lock};
-
 exit(0);
 
 
@@ -313,5 +314,5 @@ sub getBaseDirectoryName {
 sub exitWithError {
     my $message = shift;
     print STDERR $message, "\n";
-    errorHandler();
+    exit(1);
 }
