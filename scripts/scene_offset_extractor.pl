@@ -14,8 +14,8 @@ close $ifh;
 
 @lines = grep {$_ =~ m/exact.+CM$/} @lines;
 if ($#lines == -1) {
-    # TODO: Handle this condition.
-    die "There is no CM.";
+    print STDERR "There is no CM.\n";
+    exit(0);
 }
 
 my @values = ();
