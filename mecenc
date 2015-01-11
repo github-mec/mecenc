@@ -41,8 +41,10 @@ $options{tempdir} = "$base_dirname/encoding";
 $options{destdir} = "$base_dirname/encoded";
 $options{logdir} = "$base_dirname/log";
 GetOptions(\%options, qw/
-    help no_scale keep_fps analyze no_clean no_lock public_log interlaced
-    tempdir=s destdir=s logdir=s scenefile=s scenelistfile=s logo=s x265 crf=f/)
+    help no_clean no_lock public_log
+    tempdir=s destdir=s logdir=s scenefile=s scenelistfile=s
+    x265 crf=f interlaced no_scale keep_fps
+    analyze aggressive_analysis logo=s/)
     or exitWithError('Failed to parse options.');
 if ($options{help} || ($#ARGV == -1 && !$options{scenelistfile})) {
     help();
@@ -122,7 +124,9 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
         exitWithError("Output file and/or log directory already exists.");
     }
 
-    execute(qq|$script_dirname/ts_dumper.pl "$input_filename"|);
+    my $ts_dumper_options =
+        $options{aggressive_analysis} ? '--aggressive_analysis' : '';
+    execute(qq|$script_dirname/ts_dumper.pl $ts_dumper_options "$input_filename"|);
     if (defined $scene_filename) {
         execute(qq|cp "$scene_filename" "scene.txt"|);
     } else {
@@ -134,9 +138,9 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
             execute(qq|$script_dirname/scene_change_detector.py|);
         }
         execute(qq|$script_dirname/scene_filter.pl|);
-        execute(qq|$script_dirname/scene_offset_extractor.pl|);
 
-        if (-f 'scene_offset.txt') {
+        execute(qq|$script_dirname/scene_offset_extractor.pl|);
+        if (!$options{aggressive_analysis} && -f 'scene_offset.txt') {
             open my $offset_ifh, '<', 'scene_offset.txt'
                 or exitWithError("Failed to open scene_offset.txt");
             my ($start, $duration) = split '\s+', <$offset_ifh>;
@@ -197,22 +201,30 @@ sub help {
 $ mecenc [options] [ts_file_1 ts_file_2 ...]
 $ mecenc --scenelistfile scenelistfile
 
---tempdir:    Temp directory
---destdir:    Output directory
---logdir:     Log directory, which contains data for CM cut.
---logo:       Use logo detection for CM cut.
---x265:       Use x265 instead of x264.
---analyze:    Generate log data and scenelist file (for --scenelistfile) only.
---no_lock:    Run scripts without lock.
---no_clean:   Do not remove a temp directory.
---no_scale:   Do not scale movies.
---keep_fps:   Do not decimate frames to keep the original fps.
---interlaced: Keep interlace.
---crf       : Set CRF to specify the video quality. (default: x264:18, x265:19)
---scenefile:  Use pre-generated scene.txt for CM cut.
---scenelistfile: Scenelist file for batch encoding.
-                 Use pre-generated list of scene.txt TS file in this file.
---public_log: Make the permission of log data public.
+general options
+--tempdir    Temp directory
+--destdir    Output directory
+--logdir     Log directory, which contains data for CM detection.
+--no_lock    Run scripts without lock.
+--no_clean   Do not remove a temp directory.
+--public_log Make the permission of log data public.
+
+pre-generated scenefile options
+--scenefile     Use pre-generated scene.txt for CM detection.
+--scenelistfile Scenelist file for batch encoding.
+                Use pre-generated list of scene.txt TS file in this file.
+
+encode options
+--x265       Use x265 instead of x264.
+--crf        Set CRF to specify the video quality. (default: x264:18, x265:19)
+--interlaced Keep interlace.
+--keep_fps   Do not decimate frames to keep the original fps.
+--no_scale   Do not scale movies.
+
+analyze options
+--analyze             Generate log and scenelist file (for --scenelistfile) only.
+--logo                Use logo detection for CM detection.
+--aggressive_analysis Enable aggressive analysis mainly for manual CM detection.
 HELP
 }
 
@@ -229,7 +241,13 @@ sub validateOptions {
     exitWithError(
         "Cannot use --scenefile and --scenelistfile at the same time.")
         if ($options->{scenefile} && $options->{scenelistfile});
-    #exitWithError("Please specify only one input file with --scenefile")
+    for my $analyze_option (qw/aggressive_analysis logo/) {
+        for my $scene_option (qw/scenefile scenelistfile/) {
+            exitWithError(
+                "Cannot use --$analyze_option with --$scene_option.")
+                if ($options->{$scene_option} && $options->{$analyze_option});
+        }
+    }
     exitWithError("Please specify only one input file for --scenefile.")
         if ($options->{scenefile} && $#ARGV != 0);
     exitWithError("Cannot specify input file for --scenelistfile.")
@@ -243,6 +261,10 @@ sub validateOptions {
             my $path = sprintf("%s/%s.%s", $logo_dirname, $logo_name, $ext);
             exitWithError(qq|Please prepare "$path"|) if !-f $path;
         }
+    }
+
+    for my $path (@ARGV) {
+        exitWithError(qq|No such file or directory: $path|) if !-f $path
     }
 }
 

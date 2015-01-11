@@ -73,13 +73,30 @@ string SamplingToTime(size_t sampling_counter, size_t sampling_rate) {
   return ss.str();
 }
 
+void help(const char *program_name) {
+  cerr << "Usage: " << program_name << " [--aggressive_analysis] filename" << endl;
+}
+
 int main(int argc, char *argv[]) {
-  if (argc != 2) {
-    cerr << "Usage: " << argv[0] << " filename" << endl;
+  if (argc != 2 && argc != 3) {
+    help(argv[0]);
     return -1;
   }
 
-  ifstream ifs(argv[1]);
+  string input_filename;
+  bool enable_aggressive_analysis = false;
+  if (argc == 2) {
+    input_filename = argv[1];
+  } else {
+    if (argv[1] != string("--aggressive_analysis")) {
+      help(argv[0]);
+      return -1;
+    }
+    input_filename = argv[2];
+    enable_aggressive_analysis = true;
+  }
+
+  ifstream ifs(input_filename.c_str());
   if (!ifs) {
     cerr << "Failed to open file: " << argv[1] << endl;
     return -1;
@@ -155,7 +172,9 @@ int main(int argc, char *argv[]) {
   }
 
   vector<pair<size_t, size_t> > mute_ranges;
-  const int kVolumeThreshold = 12 * (1 << ((sampling_bytes - 2) * 8));
+  const int kVolumeThreshold = enable_aggressive_analysis
+    ? 1 * (1 << ((sampling_bytes - 1) * 8))
+    : 12 * (1 << ((sampling_bytes - 2) * 8));
   const int kVolumeDiffThreshold = 2;
   const int minimum_mute_chunk_threshold = sampling_rate / 100;  // 10msec
   int mute_counter = 0;

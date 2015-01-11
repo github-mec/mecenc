@@ -46,6 +46,9 @@
 ## Don't clean the working directory
     ./mecenc --no_clean input_file.ts
 
+## Enable aggressive CM analysis mainly for manual CM detection.
+    ./mecenc --aggressive_analysis input_file.ts
+
 ## Don't lock other mecenc
     ./mecenc --no_lock input_file.ts
 * Without this option, mecenc creates /tmp/encode\_movie.lock to lock other process.
