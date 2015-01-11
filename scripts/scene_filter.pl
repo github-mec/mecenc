@@ -63,7 +63,6 @@ for my $value (@candidates) {
 
 @result = filterTailCmGroup(@result);
 @result = filterShortCmGroup(@result);
-@result = filterAggregateBody(@result);
 
 open my $output_fh, '>', $output_filename
     or die "Failed to open file. [$output_filename]";
@@ -208,20 +207,6 @@ sub filterShortCmGroup {
             }
         }
         $cm_start_index = undef;
-    }
-    return @lines;
-}
-
-sub filterAggregateBody {
-    my @lines = @_;
-    my $previous_type = '';
-    for (my $i = 0; $i < $#lines; ++$i)  {
-        my $type = getType($lines[$i]);
-        if ($previous_type eq 'BODY' and $type eq 'BODY') {
-            splice @lines, $i, 1;
-            --$i;
-        }
-        $previous_type = $type;
     }
     return @lines;
 }
