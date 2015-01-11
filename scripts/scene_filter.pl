@@ -23,15 +23,11 @@ push @lines, map {chomp; $_} <$input_fh>;
 close $input_fh;
 
 my $logo_data = loadLogoData();
-my @candidates = ();
 my %cm_set = ();
-push @candidates, $lines[0];
 
 LINE: for (my $i = 0; $i < $#lines; ++$i) {
     # CM of the previous program may exist.
     if (getExactFrame($lines[$i + 1]) < RECORDER_MAX_HEAD_MARGIN_FRAMES) {
-        push @candidates, $lines[$i];
-        push @candidates, $lines[$i + 1];
         $cm_set{$lines[$i]} = 1;
         next LINE;
     }
@@ -40,8 +36,6 @@ LINE: for (my $i = 0; $i < $#lines; ++$i) {
             next LINE;
         }
         if (checkDiff($lines[$i], $lines[$j])) {
-            push @candidates, $lines[$i];
-            push @candidates, $lines[$j];
             $cm_set{$lines[$i]} = 1;
             $i = $j - 1;
             next LINE;
@@ -49,12 +43,9 @@ LINE: for (my $i = 0; $i < $#lines; ++$i) {
     }
 }
 
-push @candidates, $lines[$#lines];
-@candidates = do { my %c; grep {!$c{$_}++} @candidates };  # uniq
-
 my @result = ();
-for my $value (@candidates) {
-    if ($cm_set{$value} || $value eq $candidates[$#candidates]) {
+for my $value (@lines) {
+    if ($cm_set{$value} || $value eq $lines[$#lines]) {
         push @result, "$value CM";
     } else {
         push @result, "$value BODY";
