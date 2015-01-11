@@ -74,16 +74,16 @@ for my $frame (@frame_list) {
     if ($options{x265}) {
         my $crf = $options{crf} // 19;
         $video_option =
-            '-vcodec libx265 -preset medium -f hevc $pix_fmt_option ' .
-            '-x265-params ' .
+            "-vcodec libx265 -preset medium -f hevc $pix_fmt_option " .
+            "-x265-params " .
                 "crf=$crf:colorprim=bt709:transfer=bt709:colormatrix=bt709 ";
         $temp_filename = sprintf("%s%02d.265", $basename, $index);
     } else {
         my $crf = $options{crf} // 18;
         $video_option =
             "-vcodec libx264 -crf $crf -preset slow -tune animation " .
-            '-f mp4 $pix_fmt_option -deblock 0:0 -qmin 10 ' .
-            '-x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709 ';
+            "-f mp4 $pix_fmt_option -deblock 0:0 -qmin 10 " .
+            "-x264-params colorprim=bt709:transfer=bt709:colormatrix=bt709 ";
         $temp_filename = sprintf("%s%02d.mp4v", $basename, $index);
     }
     die "A temp file is already exists. [$temp_filename]" if -e $temp_filename;
