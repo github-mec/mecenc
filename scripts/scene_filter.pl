@@ -37,7 +37,9 @@ LINE: for (my $i = 0; $i < $#lines; ++$i) {
             next LINE;
         }
         if (checkDiff($lines[$i], $lines[$j])) {
-            $cm_set{$lines[$i]} = 1;
+            for my $k ($i .. $j - 1) {
+                $cm_set{$lines[$k]} = 1;
+            }
             $i = $j - 1;
             next LINE;
         }
