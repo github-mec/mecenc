@@ -5,6 +5,7 @@ use warnings;
 use utf8;
 use constant {
     RECORDER_MAX_HEAD_MARGIN_FRAMES => 6.7 * 30000 / 1001.0,
+    MAX_CM_FRAMES => (3 * 60 + 3) * 30000 / 1001.0,
 };
 
 use List::Util qw/min max/;
@@ -40,6 +41,9 @@ LINE: for (my $i = 0; $i < $#lines; ++$i) {
             $i = $j - 1;
             next LINE;
         }
+        if (getDurationInFrameNum($lines[$i], $lines[$j]) > MAX_CM_FRAMES) {
+            next LINE;
+        }
     }
 }
 
@@ -63,15 +67,16 @@ close $output_fh;
 exit;
 
 
+sub getDurationInFrameNum {
+    my ($a, $b) = @_;
+    return getExactFrame($b) - getExactFrame($a);
+}
+
 sub checkDiff {
     my ($a, $b) = @_;
-    my ($a_is_exact, $a_min, $a_max) = dumpLine($a);
-    my ($b_is_exact, $b_min, $b_max) = dumpLine($b);
-    if (!$a_is_exact || !$b_is_exact) {
+    if (!isExact($a) || !isExact($b)) {
         return 0;
     }
-    my $diff_min = $b_min - $a_max;
-    my $diff_max = $b_max - $a_min;
 
     my @ranges = (
         [446.4, 452.6],  # 15 sec
@@ -85,27 +90,14 @@ sub checkDiff {
         push @ranges, [2694.7, 2699.9];  # 90 sec
     }
 
+    my $frame_num = getDurationInFrameNum($a, $b);
     for my $range (@ranges) {
-        if ($range->[0] <= $diff_min && $diff_min <= $range->[1]) {
+        if ($range->[0] <= $frame_num && $frame_num <= $range->[1]) {
             return 1;
         }
     }
 
     return 0;
-}
-
-sub dumpLine {
-    my $a = shift;
-    my $min = getLowerFrame($a);
-    my $max = getUpperFrame($a);
-    my $exact = getExactFrame($a);
-
-    if (defined $exact && $a =~ m/exact/) {
-        $exact = POSIX::floor($exact * 10 + 0.1) / 10.0;
-        return (1, $exact, $exact);
-    } else {
-        return (0, int($min), int($max));
-    }
 }
 
 # TODO: Employ more robust way.
