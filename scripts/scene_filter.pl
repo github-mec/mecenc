@@ -192,9 +192,9 @@ sub filterShortCmGroup {
                 getLowerFrame($lines[$i])
                 - getUpperFrame($lines[$cm_start_index]));
             if ($duration < 25) {
-                my $remove_num = $i - $cm_start_index;
-                splice @lines, $cm_start_index, $remove_num;
-                $i -= $remove_num;
+                for my $line (@lines[$cm_start_index .. $i]) {
+                    setType($line, 'BODY');
+                }
             }
         }
         $cm_start_index = undef;
