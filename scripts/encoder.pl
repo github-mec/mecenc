@@ -106,7 +106,7 @@ for my $frame (@frame_list) {
         $filter_v .= qq|,scale=width=1280:height=720|;
         $video_command .= qq|-sws_flags lanczos+accurate_rnd |;
     }
-    $filter_v .= qq|,setpts=PTS-STARTPTS|;
+    $filter_v .= qq|,lutyuv="y=clipval",setpts=PTS-STARTPTS|;
     $video_command .= qq|$filter_v "$temp_filename" |;
     $index++;
 }
