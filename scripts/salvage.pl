@@ -6,13 +6,14 @@ use constant {
     TARGET_FILENAMES => [
         'index.html',
         'logo.txt',
-        'raw_silence.txt',
-        'silence.txt',
         'raw_scene.txt',
         'raw_scene.txt.orig',
+        'raw_silence.txt',
         'scene.txt',
         'scene.txt.orig',
         'scene_offset.txt',
+        'silence.txt',
+        'sponsor.txt',
     ],
     TARGET_DIRNAMES => [
     ],

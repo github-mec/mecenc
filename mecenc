@@ -137,6 +137,7 @@ for (my $i = 0; $i <= $#input_filenames; ++$i) {
         } else {
             execute(qq|$script_dirname/scene_change_detector.py|);
         }
+        execute(qq|$script_dirname/sponsor_detector/sponsor_detector_driver.py|);
         execute(qq|$script_dirname/scene_filter.pl|);
 
         execute(qq|$script_dirname/scene_offset_extractor.pl|);

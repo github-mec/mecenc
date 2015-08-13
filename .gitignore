@@ -2,4 +2,5 @@
 logo/*.png
 \#*
 scripts/silence_detector/silence_detector
+scripts/sponsor_detector/sponsor_detector
 scripts/ts_cleaner/ts_cleaner

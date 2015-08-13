@@ -64,4 +64,6 @@
 * x265 (optional)
 * neroAacEnc
 * ffmpeg (libx264, libx265 and libpng support is required)
+* tesseract-ocr
+* tesseract-ocr-jpn
 * TBD...

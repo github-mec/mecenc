@@ -23,7 +23,8 @@ my @lines;
 push @lines, map {chomp; $_} <$input_fh>;
 close $input_fh;
 
-my $logo_data = loadLogoData();
+my $logo_filter_data = loadFilterData('logo.txt', 1);
+my $sponsor_filter_data = loadFilterData('sponsor.txt', 2);
 my %cm_set = ();
 
 LINE: for (my $i = 0; $i < $#lines; ++$i) {
@@ -33,7 +34,8 @@ LINE: for (my $i = 0; $i < $#lines; ++$i) {
         next LINE;
     }
     for (my $j = $i + 1; $j <= $#lines; ++$j) {
-        if (hasLogoInRange($j - 1, $logo_data, @lines)) {
+        if (checkBodyByFilter($j - 1, $logo_filter_data, @lines) ||
+            checkBodyByFilter($j - 1, $sponsor_filter_data, @lines)) {
             next LINE;
         }
         if (checkDiff($lines[$i], $lines[$j])) {
@@ -144,8 +146,8 @@ sub filterTailCmGroup {
     return @lines;
 }
 
-sub hasLogoInRange {
-    my ($index, $logo_data, @lines) = @_;
+sub checkBodyByFilter {
+    my ($index, $filter_data, @lines) = @_;
     if ($index + 1 > $#lines) {
         return 0;
     }
@@ -155,7 +157,7 @@ sub hasLogoInRange {
     my $start = POSIX::ceil(getTimeFromFrameNum($start_frame));
     my $end = POSIX::floor(getTimeFromFrameNum($end_frame));
     for (my $i = $start; $i <= $end; ++$i) {
-        if ($logo_data->[$i]) {
+        if (exists $filter_data->{$i}) {
             return 1;
         }
     }
@@ -233,17 +235,20 @@ sub getTimeFromFrameNum {
     return $frame_num * 1001 / 30000.0;
 }
 
-sub loadLogoData {
-    my $filename = 'logo.txt';
+sub loadFilterData {
+    my ($filename, $image_duration_sec) = @_;
     if (!-e $filename) {
         return undef;
     }
     open my $fh, '<', $filename or die 'Failed to open $filename.';
-    my @logo_data = ();
+    my %filter_data = ();
     for my $data (<$fh>) {
-        my $has_logo = (split ' ', $data)[1];
-        push @logo_data, ($has_logo eq 'True');
+        my ($index, $is_body) = split ' ', $data;
+        $index = int($index) * $image_duration_sec;
+        if ($is_body eq 'True') {
+            $filter_data{$index} = 1;
+        }
     }
     close $fh;
-    return \@logo_data;
+    return \%filter_data;
 }

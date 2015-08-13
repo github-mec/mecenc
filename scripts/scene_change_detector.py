@@ -87,7 +87,14 @@ def GetDumpDirname(scene_index):
     return dirname
 
 
-def GetPeriodicalDumpDirname():
+def GetSponsorMarkDumpDirname():
+    dirname = "sponsor_dump"
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    return dirname
+
+
+def GetLogoDumpDirname():
     dirname = "logo_dump"
     if not os.path.exists(dirname):
         os.makedirs(dirname)
@@ -162,6 +169,13 @@ def DumpImages(options, movie_filename, frame_list):
                 '-an',
                 output_filename])
 
+    output_filename = '%s/%s.png' % (GetSponsorMarkDumpDirname(), '%06d')
+    command.extend([
+        '-filter:v', ('fps=fps=0.5:round=down,'
+                      'scale=width=1920:height=1080,crop=384:340:768:100'),
+        '-an',
+        output_filename])
+
     if options.logo_info is not None:
         logo_info = ParseLogoInformation(options.logo_info)
         offset_x = logo_info['offset_x']
@@ -171,8 +185,7 @@ def DumpImages(options, movie_filename, frame_list):
 
         extra_offset_x = 4 if offset_x >= 4 else offset_x
         extra_offset_y = 4 if offset_y >= 4 else offset_y
-        dirname = GetPeriodicalDumpDirname()
-        output_filename = '%s/%s.png' % (dirname, '%06d')
+        output_filename = '%s/%s.png' % (GetLogoDumpDirname(), '%06d')
         command.extend([
             '-filter:v', (
                 'fps=fps=1:round=down'

@@ -41,7 +41,7 @@ def LoadLogoRangeData(logo_image):
                     end = x
                     if 1 < end - start < 8:
                         color = float(sum(row[start:end])) / (end - start)
-                        ranges[y].append((start, end, color))
+                        ranges[y].append((start, end, color * 0.7))
                     start = None
                 continue
             if start is None:
@@ -78,7 +78,7 @@ def RowDetect(logo_image_row, logo_range_row, target_row):
 
         too_dark_color = False
         base_color_with_margin = base_color - 8
-        dark_threshold = base_color / 2 - 8
+        dark_threshold = base_color * 0.7 - 8
         for x in xrange(start, end):
             # Please pay attention for performance.
             if target_row[x] < max(logo_image_row[x] + dark_threshold,
