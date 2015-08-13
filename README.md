@@ -57,6 +57,7 @@
 * g++
 * python-opencv
 * python-numpy
+* libopencv-dev
 * libstdc++6:i386  # for NeroAacEnc(32bit) on 64bit Linux.
 * ImageMagick
 * sox

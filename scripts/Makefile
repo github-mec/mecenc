@@ -1,5 +1,5 @@
 MAKE        = make
-MAKE_DIRS   = silence_detector ts_cleaner
+MAKE_DIRS   = silence_detector sponsor_detector ts_cleaner
 
 .PHONY: all $(MAKE_DIRS)
 
