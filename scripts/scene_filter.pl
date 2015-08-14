@@ -34,8 +34,8 @@ LINE: for (my $i = 0; $i < $#lines; ++$i) {
         next LINE;
     }
     for (my $j = $i + 1; $j <= $#lines; ++$j) {
-        if (checkBodyByFilter($j - 1, $logo_filter_data, @lines) ||
-            checkBodyByFilter($j - 1, $sponsor_filter_data, @lines)) {
+        if (filterByData($j - 1, $logo_filter_data, @lines) ||
+            filterByData($j - 1, $sponsor_filter_data, @lines)) {
             next LINE;
         }
         if (checkDiff($lines[$i], $lines[$j])) {
@@ -146,7 +146,7 @@ sub filterTailCmGroup {
     return @lines;
 }
 
-sub checkBodyByFilter {
+sub filterByData {
     my ($index, $filter_data, @lines) = @_;
     if ($index + 1 > $#lines) {
         return 0;
