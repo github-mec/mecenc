@@ -7,10 +7,9 @@ import subprocess
 
 _RESULT_FILENAME = 'sponsor.txt'
 _CONVERTED_FILENAME_PREFIX = 'converted_'
-_TESSERACT_WHITELIST = u''.join(
+_TESSERACT_WHITELIST = u'提供' + u''.join(
     [unichr(c) for c in range(ord(u'あ'), ord(u'ん') + 1)] +
-    [unichr(c) for c in range(ord(u'ァ'), ord(u'ン') + 1)]
-    ) + u'提供'
+    [unichr(c) for c in range(ord(u'ァ'), ord(u'ン') + 1)])
 
 
 def GetSponsorMarkDumpDirname():
@@ -46,16 +45,15 @@ def IsSponsorImage(filename):
         'LANG': 'ja_JP.UTF-8',
         'LC_ALL': 'ja_JP.UTF-8',
     }
-    output = subprocess.check_output([
+    command = [
         'tesseract',
         filename,
         'stdout',
         '-l', 'jpn',
         '-psm', '6',
-        '-c', u'tessedit_char_whitelist=%s' % _TESSERACT_WHITELIST],
-        env = utf8_env)
-    output = output.decode('utf-8')
-    return output.find(u'提') >= 0 and output.find(u'供') >= 0
+        '-c', u'tessedit_char_whitelist=%s' % _TESSERACT_WHITELIST]
+    output = subprocess.check_output(command, env = utf8_env).decode('utf-8')
+    return 0 <= output.find(u'提') < output.find(u'供')
 
 
 def OutputToFile(filename, lines):
