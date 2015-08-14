@@ -60,6 +60,7 @@ for my $value (@lines) {
     }
 }
 
+@result = filterByMixedBoundary(@result);
 @result = filterTailCmGroup(@result);
 @result = filterShortCmGroup(@result);
 
@@ -196,6 +197,44 @@ sub filterShortCmGroup {
         $cm_start_index = undef;
     }
     return @lines;
+}
+
+# TODO: Handle a CM which consists of multiple chunks.
+sub filterByMixedBoundary {
+    my @lines = @_;
+    for (my $i = 1; $i <= $#lines - 1; ++$i) {
+        my $previous_line = $lines[$i - 1];
+        my $line = $lines[$i];
+        my $next_line = $lines[$i + 1];
+
+        if (getType($line) eq 'BODY') {
+            next;
+        }
+
+        if (getType($previous_line) eq 'CM' &&
+            getType($next_line) eq 'BODY' &&
+            isExactMixedBoundary($line)) {
+            setType($lines[$i], 'BODY');
+            next;
+        }
+
+        if (getType($previous_line) eq 'BODY' &&
+            getType($next_line) eq 'CM' &&
+            isExactMixedBoundary($next_line)) {
+            setType($lines[$i], 'BODY');
+            next;
+        }
+    }
+    return @lines;
+}
+
+sub isExactMixedBoundary {
+    my $line = shift;
+    if (!isExact($line)) {
+        return 0;
+    }
+    my $frame = getExactFrame($line);
+    return abs($frame - int($frame)) > 0.4;
 }
 
 sub isExact {
