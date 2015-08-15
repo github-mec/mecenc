@@ -6,6 +6,12 @@ use utf8;
 use constant {
     RECORDER_MAX_HEAD_MARGIN_FRAMES => 6.7 * 30000 / 1001.0,
     MAX_CM_FRAMES => (3 * 60 + 3) * 30000 / 1001.0,
+    RANGE_5_SEC => [146.4, 152.6],
+    RANGE_10_SEC => [296.2, 302.6],
+    RANGE_15_SEC => [446.4, 452.6],
+    RANGE_30_SEC => [896.4, 901.6],
+    RANGE_60_SEC => [1795.6, 1800.7],
+    RANGE_90_SEC => [2694.7, 2699.9],
 };
 
 use List::Util qw/min max/;
@@ -87,20 +93,20 @@ sub checkDiff {
     }
 
     my @ranges = (
-        [446.4, 452.6],  # 15 sec
-        [896.4, 901.6],  # 30 sec
-        [1795.6, 1800.7],  # 60 sec
+        RANGE_15_SEC,
+        RANGE_30_SEC,
+        RANGE_60_SEC,
     );
     my $is_logo_detection_enabled = -f 'logo.txt';
     if ($is_logo_detection_enabled) {
-        push @ranges, [146.4, 152.6];  # 5 sec
-        push @ranges, [296.2, 302.6];  # 10 sec
-        push @ranges, [2694.7, 2699.9];  # 90 sec
+        push @ranges, RANGE_5_SEC;
+        push @ranges, RANGE_10_SEC;
+        push @ranges, RANGE_90_SEC;
     }
 
     my $frame_num = getDurationInFrameNum($a, $b);
     for my $range (@ranges) {
-        if ($range->[0] <= $frame_num && $frame_num <= $range->[1]) {
+        if (inRange($range, $frame_num)) {
             return 1;
         }
     }
@@ -217,12 +223,29 @@ sub filterShortCmGroup {
 # TODO: Handle a CM which consists of multiple chunks.
 sub filterByMixedBoundary {
     my @lines = @_;
+
+    my @ranges = (
+        RANGE_5_SEC,
+        RANGE_10_SEC,
+        RANGE_15_SEC);
+
     for (my $i = 1; $i <= $#lines - 1; ++$i) {
         my $previous_line = $lines[$i - 1];
         my $line = $lines[$i];
         my $next_line = $lines[$i + 1];
 
         if (getType($line) eq 'BODY') {
+            next;
+        }
+
+        # Skip if unexpected duration.
+        # TODO: Handle a CM which is splitted into multiple chunks.
+        my $duration = getExactFrame($next_line) - getExactFrame($line);
+        my $in_range = 0;
+        for my $range (@ranges) {
+            $in_range |= inRange($range, $duration);
+        }
+        if (!$in_range) {
             next;
         }
 
@@ -287,6 +310,11 @@ sub setType {
 sub getTimeFromFrameNum {
     my $frame_num = shift;
     return $frame_num * 1001 / 30000.0;
+}
+
+sub inRange {
+    my ($range, $value) = @_;
+    return $range->[0] <= $value && $value <= $range->[1];
 }
 
 sub loadFilterData {
