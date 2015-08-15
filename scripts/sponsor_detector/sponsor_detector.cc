@@ -12,8 +12,8 @@ const int HSV_V_THRESHOLD = 220;
 const int HSV_S_THRESHOLD = 20;
 const int SMALL_WHITE_AREA_SIZE_THRESHOLD = 50;
 const int SMALL_BLACK_AREA_SIZE_THRESHOLD = 16;
-const int LARGE_AREA_SIZE_THRESHOLD = 1500;
-const int SPONSOR_MARK_AREA_NUM = 7;
+const int LARGE_AREA_SIZE_THRESHOLD = 5000;
+const int SPONSOR_MARK_AREA_NUM = 5;
 
 int image_width;
 int image_height;
