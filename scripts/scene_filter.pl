@@ -34,8 +34,8 @@ LINE: for (my $i = 0; $i < $#lines; ++$i) {
         next LINE;
     }
     for (my $j = $i + 1; $j <= $#lines; ++$j) {
-        if (filterByData($j - 1, $logo_filter_data, @lines) ||
-            filterByData($j - 1, $sponsor_filter_data, @lines)) {
+        if (isBodyByData($j - 1, $logo_filter_data, @lines) ||
+            isBodyByData($j - 1, $sponsor_filter_data, @lines)) {
             next LINE;
         }
         if (checkDiff($lines[$i], $lines[$j])) {
@@ -60,9 +60,12 @@ for my $value (@lines) {
     }
 }
 
-@result = filterByMixedBoundary(@result);
 @result = filterTailCmGroup(@result);
 @result = filterShortCmGroup(@result);
+@result = filterByData($logo_filter_data, @result);
+@result = filterByData($sponsor_filter_data, @result);
+@result = filterByMixedBoundary(@result);
+
 
 open my $output_fh, '>', $output_filename
     or die "Failed to open file. [$output_filename]";
@@ -147,7 +150,7 @@ sub filterTailCmGroup {
     return @lines;
 }
 
-sub filterByData {
+sub isBodyByData {
     my ($index, $filter_data, @lines) = @_;
     if ($index + 1 > $#lines) {
         return 0;
@@ -162,6 +165,18 @@ sub filterByData {
             return 1;
         }
     }
+    return 0;
+}
+
+sub filterByData {
+    my ($filter_data, @lines) = @_;
+    for my $index (0..$#lines) {
+        if (getType($lines[$index]) ne 'BODY' &&
+            isBodyByData($index, $filter_data, @lines)) {
+            setType($lines[$index], 'BODY');
+        }
+    }
+    return @lines;
 }
 
 sub filterShortCmGroup {
