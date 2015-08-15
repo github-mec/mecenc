@@ -1,4 +1,4 @@
-offset_x: 1260
-offset_y: 56
-width: 96
-height: 48
+offset_x: 1264
+offset_y: 76
+width: 88
+height: 68
