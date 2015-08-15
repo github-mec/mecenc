@@ -55,21 +55,17 @@ sub DetectSceneChangeRange {
     }
 
     my $start = $values[$index];
-    my $duration = undef;
     my @filtered_values = FilterByRange($start, $start + $margin, \@values);
-    if ($start + $margin >= 1.0) {
-        my @lower_values = FilterByRange(0, $margin, \@filtered_values);
-        if ($#lower_values != -1) {
-            $duration = List::Util::max(@lower_values) + 1 - $start;
-        }
+    for my $value (@filtered_values) {
+        $value += 1 if $value < $start;
     }
-    $duration //= List::Util::max(@filtered_values) - $start;
-
-    $start -= ($margin - $duration) / 2;
-    if ($start < 0) {
-        $start += 1;
-    }
-    return ($start, $margin);
+    @filtered_values = sort @filtered_values;
+    my $count = scalar @filtered_values;
+    my $median_value = ($count % 2 == 0)
+        ? ($filtered_values[$count / 2 - 1] + $filtered_values[$count / 2]) / 2
+        : $filtered_values[($count - 1) / 2];
+    $median_value -= 1 if $median_value >= 1;
+    return ($median_value - $margin / 2.0, $margin);
 }
 
 sub FilterByRange {
