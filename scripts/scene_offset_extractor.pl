@@ -64,8 +64,10 @@ sub DetectSceneChangeRange {
     my $median_value = ($count % 2 == 0)
         ? ($filtered_values[$count / 2 - 1] + $filtered_values[$count / 2]) / 2
         : $filtered_values[($count - 1) / 2];
-    $median_value -= 1 if $median_value >= 1;
-    return ($median_value - $margin / 2.0, $margin);
+    my $result_start = $median_value - $margin / 2.0;
+    $result_start += 1 if $result_start < 0;
+    $result_start -= 1 if $result_start >= 1;
+    return ($result_start, $margin);
 }
 
 sub FilterByRange {
