@@ -194,10 +194,10 @@ int main(int argc, char *argv[]) {
                       max_sampling_count));
       }
     } else {
-      mute_counter = 0;
       if (mute_counter >= minimum_mute_chunk_threshold) {
         mute_ranges.back().second = sampling_counter - 1;
       }
+      mute_counter = 0;
     }
   }
 
