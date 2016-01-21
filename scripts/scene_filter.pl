@@ -116,6 +116,10 @@ sub checkDiff {
     return 0;
 }
 
+# Filter CM on the tail.
+# This script marks the last chunk as CM. If the last CM has silent range, the
+# head of the last CM will be marked as BODY.
+# This filter marks such chunk as CM.
 # TODO: Employ more robust way.
 sub filterTailCmGroup {
     my @lines = @_;
@@ -127,16 +131,17 @@ sub filterTailCmGroup {
     }
     my $last_exact_frame = getExactFrame($last_line);
     if (getTimeFromFrameNum($last_exact_frame) < 7.5 * 60) {
-        # Don't handle short movie.
+        # Don't handle a short input movie.
         return @lines;
     }
+    # A long input movie should have two or more CMs at the tail.
     if (getType($lines[-2]) eq 'CM') {
         # There is no pieces of CM.
         return @lines;
     }
 
-    my $body_index = $#lines - 1;
-    for (my $body_index = $#lines; $body_index >= 0; --$body_index) {
+    my $body_index = $#lines - 2;
+    for (; $body_index >= 0; --$body_index) {
         my $line = $lines[$body_index];
         if (getType($line) eq 'CM') {
             ++$body_index;
@@ -144,10 +149,14 @@ sub filterTailCmGroup {
         }
     }
 
+    if ($body_index == 0) {
+        # An input movie should have body.
+        return @lines;
+    }
     my $body_duration = getTimeFromFrameNum(
         $last_exact_frame - getExactFrame($lines[$body_index]));
-    # Handle 120 sec or shorter CM.
     if ($body_duration > 121) {
+        # Handle 120sec or shorter CM only.
         return @lines;
     }
 
