@@ -12,6 +12,7 @@ use constant {
     RANGE_30_SEC => [896.4, 901.6],
     RANGE_60_SEC => [1795.6, 1800.7],
     RANGE_90_SEC => [2694.7, 2699.9],
+    RANGE_120_SEC => [3593.8, 3599.0],
 };
 
 use List::Util qw/min max/;
@@ -102,6 +103,7 @@ sub checkDiff {
         push @ranges, RANGE_5_SEC;
         push @ranges, RANGE_10_SEC;
         push @ranges, RANGE_90_SEC;
+        push @ranges, RANGE_120_SEC;
     }
 
     my $frame_num = getDurationInFrameNum($a, $b);
@@ -144,8 +146,8 @@ sub filterTailCmGroup {
 
     my $body_duration = getTimeFromFrameNum(
         $last_exact_frame - getExactFrame($lines[$body_index]));
-    # Handle 90sec or shorter CM.
-    if ($body_duration > 91) {
+    # Handle 120 sec or shorter CM.
+    if ($body_duration > 121) {
         return @lines;
     }
 
