@@ -193,7 +193,7 @@ sub getVideoDelay {
 sub getOriginalHeight {
     my $a = shift;
     my $line = `ffmpeg -i "$a" 2>&1 1| grep "Stream #" | grep ": Video: "`;
-    my ($width, $height) = $line =~ m/(\d+)x(\d+)/;
+    my ($width, $height) = $line =~ m/(\d{2,})x(\d{2,})/;
     return $height;
 }
 
