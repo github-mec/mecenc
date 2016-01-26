@@ -95,7 +95,7 @@ for my $frame (@frame_list) {
     } elsif ($options{keep_fps}) {
         $filter_v .= ',yadif';
     } else {
-        my $original_height = getOriginalHeight();
+        my $original_height = getOriginalHeight($video_filename);
         my $y0 = POSIX::floor($original_height / 4.0);
         my $y1 = POSIX::ceil($original_height * 3.0 / 4.0);
         $filter_v .=
@@ -176,11 +176,6 @@ if ($options{x265}) {
 }
 
 exit;
-
-sub getVideoTempFilename {
-    my $a = shift;
-    sprintf("%s%02d.mp4v", $basename, $index)
-}
 
 sub getVideoDelay {
     my $a = shift;
