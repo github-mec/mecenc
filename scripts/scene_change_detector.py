@@ -112,7 +112,7 @@ def GetFirstKeyFrameIndex(filename):
         stdout=None, stderr=subprocess.PIPE)
     output = process.communicate()[1]
 
-    regex = re.compile(' n:(\d+)\s.+\siskey:1\s')
+    regex = re.compile(r'\sn:\s*(\d+)\s.+\siskey:1\s')
     for line in output.split('\n'):
         match = regex.search(line)
         if not match:
