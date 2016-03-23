@@ -142,8 +142,8 @@ def FilterSilenceRanges(options, start, end):
 
     if len(result) == 0:
         return ()
-    if end - 0.2 < result[-1][1]:
-        result.insert(0, result.pop())
+    if end - 0.2 < result[0][1]:
+        result.append(result.pop(0))
     return result
 
 
